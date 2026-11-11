@@ -1,0 +1,24 @@
+{
+  "name": "web-visualizer-manager",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Daniel's visuals engine: named effects on PixiJS and Three.js that react to each other, with a library of effects and a lab page.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 3031 --strictPort --open /lab/",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test tests",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 3032 --strictPort"
+  },
+  "dependencies": {
+    "pixi.js": "8.20.1",
+    "three": "0.187.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.4",
+    "@types/three": "^0.187.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.7"
+  }
+}
