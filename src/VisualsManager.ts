@@ -68,6 +68,7 @@ export class VisualsManager {
     private motion: boolean;
     private invalidated = true;
     private sizeDirty = true;
+    private hasSize = false;
     private lastScrollY = -1;
     private disposed = false;
 
@@ -269,6 +270,9 @@ export class VisualsManager {
     /** Run ticks without drawing, so a still frame shows a settled scene rather than an empty one. */
     public prewarm(ticks: number): void {
         this.syncSize();
+        if (!this.hasSize) {
+            return;
+        }
         this.stage.measure(...this.canvasOrigin());
         for (let i = 0; i < ticks; i++) {
             this.simulation.tickCycle(this.buildTickInput(false));
@@ -299,6 +303,9 @@ export class VisualsManager {
     /** Draw a single frame now, without advancing the simulation. */
     public renderOnce(): void {
         this.syncSize();
+        if (!this.hasSize) {
+            return;
+        }
         this.stage.measure(...this.canvasOrigin());
         this.renderAll(0, 0);
     }
@@ -350,6 +357,11 @@ export class VisualsManager {
         this.lastTime = now;
 
         this.syncSize();
+        if (!this.hasSize) {
+            // Nothing to simulate on. Forget the clock so the gap is not replayed when it comes back.
+            this.lastTime = 0;
+            return;
+        }
         const [originX, originY] = this.canvasOrigin();
         this.input.setOrigin(originX, originY);
 
@@ -453,9 +465,15 @@ export class VisualsManager {
         if (!this.sizeDirty) {
             return;
         }
+        const width = this.canvas.clientWidth;
+        const height = this.canvas.clientHeight;
+        // A canvas with no layout size (a hidden tab or pane, display: none) gives the scene nothing
+        // to stand on. Keep the last real size, stay dirty, and look again next frame.
+        this.hasSize = width > 0 && height > 0;
+        if (!this.hasSize) {
+            return;
+        }
         this.sizeDirty = false;
-        const width = Math.max(1, this.canvas.clientWidth);
-        const height = Math.max(1, this.canvas.clientHeight);
         this.stage.resize(width, height);
         this.compositor.resize(width, height);
     }

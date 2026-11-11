@@ -251,14 +251,17 @@ export class Simulation {
 
     /**
      * Reading an effect that is switched off is normal and returns undefined. Reading a name
-     * no effect has ever had is almost always a typo, so say so once.
+     * no effect on this page has is either an optional partner that was left out, or a typo.
+     * Say so once, quietly: it shows with the console's verbose level on.
      */
     private noteUnknownName(effectName: string): void {
         if (this.effectEnabled.has(effectName) || this.warnedNames.has(effectName)) {
             return;
         }
         this.warnedNames.add(effectName);
-        console.warn(`[visuals] read('${effectName}'): no effect with that name has been added. Check the spelling.`);
+        console.debug(
+            `[visuals] read('${effectName}'): no effect with that name is on this page. Fine if it is optional; otherwise check the spelling.`,
+        );
     }
 
     private tellOutside(): void {
