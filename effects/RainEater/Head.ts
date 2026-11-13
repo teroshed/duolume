@@ -27,6 +27,8 @@ export class Head extends Particle {
     public margin = 0;
     /** Size of a random nudge in px/ms. Defaults to the speed limit. */
     public nudge?: number;
+    /** Now and then it turns on the spot, as in the original. False: it only drifts. */
+    public turns = true;
 
     private readonly context: EffectContext<HeadContext> = { effectType: 'head', effectContext: { isExploded: false } };
 
@@ -104,7 +106,7 @@ export class Head extends Particle {
     public randomEvents(tickContext: TickContext): void {
         // Occasionally reverse one or both velocity components, as before
         const outerDice = Math.random();
-        if (outerDice < 1 / 100) {
+        if (this.turns && outerDice < 1 / 100) {
             const innerDice = Math.random();
             if (innerDice < 0.5) {
                 // Reverse y velocity

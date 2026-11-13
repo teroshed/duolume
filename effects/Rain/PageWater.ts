@@ -6,16 +6,18 @@ import type { TickContext, TimedContext, Vector3 } from '../../src/types';
 
 /** What PageWater needs from Rain: views from its pool, and a way to turn water into a falling droplet. */
 export interface WaterPort {
-    /** A round bead view (centre anchored). */
-    acquireBead(): PixiParticle;
-    /** A teardrop view (head at the bottom, tail up). */
+    /** A teardrop view (head at the bottom, tail up): the same picture a falling droplet uses. */
     acquireTail(): PixiParticle;
     release(view: PixiParticle): void;
     /** Returns false when the drop set is full; the water then simply keeps hanging. */
     spawnDroplet(centerX: number, headY: number, water: number, velocityY: number): boolean;
 }
 
-/** A bead growing on the underside of an element. */
+// Rain draws a droplet of a given size on its 16x64 teardrop texture, 2.2x as wide and 1.5x as tall.
+const WIDTH_SCALE = 2.2 / 16;
+const HEIGHT_SCALE = 1.5 / 64;
+
+/** A drop growing on the underside of an element. */
 interface UndersideDrop {
     /** 0..1 along the bottom edge, fixed for this drop. */
     u: number;
@@ -88,6 +90,20 @@ export class PageWater {
     /** An element that has been gone this long forgets its water. */
     public static readonly FORGET_MS = 4000;
     public static readonly DETACHED_START_SPEED = 0.03;
+    /** A free drop holding DROP_WATER has DROP_SIZE, in the units of a Droplet's size. */
+    public static readonly DROP_WATER = 2.5;
+    public static readonly DROP_SIZE: Vector3 = { x: 3.6, y: 8 };
+
+    /**
+     * Size of a free drop holding `water`. A hanging drop grows into exactly this size, and the
+     * droplet that falls is born with it, so nothing changes size at the moment it lets go.
+     */
+    public static dropSize(water: number, out: Vector3): Vector3 {
+        const scale = Math.sqrt(clamp(water, 0.2, 6) / PageWater.DROP_WATER);
+        out.x = PageWater.DROP_SIZE.x * scale;
+        out.y = PageWater.DROP_SIZE.y * scale;
+        return out;
+    }
 
     /** Total water held across reservoirs. */
     public pooled = 0;
@@ -96,6 +112,7 @@ export class PageWater {
 
     private readonly reservoirs = new Map<string, Reservoir>();
     private readonly scratch: Vector3 = { x: 0, y: 0 };
+    private readonly size: Vector3 = { x: 0, y: 0 };
 
     public constructor(private readonly port: WaterPort) {}
 
@@ -179,17 +196,23 @@ export class PageWater {
                     continue;
                 }
                 const progress = clamp(slot.fill / slot.detachAt, 0, 1);
-                // The bead swells, then stretches downward in the last stretch before it lets go.
-                const width = (2.2 + 4.6 * Math.pow(progress, 0.7)) / 16 * 2.4;
-                const stretch = 1 + 0.9 * progress * progress * progress;
-                view.scaleX = width;
-                view.scaleY = width * stretch;
+                // It grows into the droplet that will fall: same picture, and at the moment it lets
+                // go the same size, place and colour. It swells first, then stretches to full length.
+                const full = PageWater.dropSize(slot.detachAt, this.size);
+                const width = full.x * (0.3 + 0.7 * Math.pow(progress, 0.7));
+                const length = width + (full.y - width) * progress * progress * progress;
+                view.scaleX = width * WIDTH_SCALE;
+                view.scaleY = length * HEIGHT_SCALE;
                 view.x = rect.x + slot.u * rect.width;
-                view.y = rect.y + rect.height + 4 * view.scaleY;
+                view.y = rect.y + rect.height + length;
                 point.x = view.x;
                 point.y = view.y;
-                view.tint = mixColor(gradientAtPosition(gradientType, point, timedContext.time, timedContext.theme), 0xffffff, 0.4);
-                view.alpha = 0.45 + 0.45 * progress;
+                view.tint = mixColor(
+                    gradientAtPosition(gradientType, point, timedContext.time, timedContext.theme),
+                    0xffffff,
+                    0.4 * (1 - progress),
+                );
+                view.alpha = 0.5 + 0.5 * progress;
             }
 
             for (let i = 0; i < reservoir.runners.length; i++) {
@@ -204,10 +227,10 @@ export class PageWater {
                 }
                 const speed = runner.pause > 0 ? 0 : runner.speed;
                 const along = Math.min(rect.height, runner.along + speed * lead);
-                const width = 1.5 + 1.3 * Math.sqrt(runner.water);
                 view.x = runner.side < 0 ? rect.x - 1.5 : rect.x + rect.width + 1.5;
                 view.y = rect.y + along;
-                view.scaleX = (width * 2.2) / 16;
+                // As wide as the droplet it becomes at the bottom of the edge.
+                view.scaleX = PageWater.dropSize(runner.water, this.size).x * WIDTH_SCALE;
                 view.scaleY = Math.min(40, 6 + speed * 140) / 64;
                 point.x = view.x;
                 point.y = view.y;
@@ -271,11 +294,13 @@ export class PageWater {
                 slot.fill += this.draw(reservoir, wanted);
             }
             if (slot.fill > 0 && !slot.view) {
-                slot.view = this.port.acquireBead();
+                slot.view = this.port.acquireTail();
             }
             if (slot.fill >= slot.detachAt) {
                 const x = rect.x + slot.u * rect.width;
-                if (this.port.spawnDroplet(x, rect.y + rect.height + 8, slot.fill, PageWater.DETACHED_START_SPEED)) {
+                // Born where the hanging drop's head is: one drop-length below the edge.
+                const headY = rect.y + rect.height + PageWater.dropSize(slot.fill, this.size).y;
+                if (this.port.spawnDroplet(x, headY, slot.fill, PageWater.DETACHED_START_SPEED)) {
                     this.resetSlot(slot);
                 }
             }

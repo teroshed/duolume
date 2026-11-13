@@ -16,6 +16,10 @@ export interface CrystalsOptions {
     /** Smallest and largest radius in stage pixels. Each crystal picks its own in between. */
     minRadius?: number;
     maxRadius?: number;
+    /** False: nothing breaks these crystals, not a click, the rain eater or lightning. Default true. */
+    breakable?: boolean;
+    /** Free-roaming crystals drift slowly and smoothly: a low top speed, no sudden turns. */
+    calm?: boolean;
 }
 
 interface Crystal {
@@ -54,6 +58,8 @@ export class Crystals extends Effect<CrystalsContext> {
     public static readonly STRIKE_RANGE = 110;
     /** How much of the force field a crystal feels. */
     public static readonly FORCE_SHARE = 0.1;
+    /** Top speed of a calm free-roaming crystal, in px/ms. */
+    public static readonly CALM_MAX_VELOCITY = 0.03;
 
     private readonly options: CrystalsOptions;
     private readonly crystals: Crystal[] = [];
@@ -77,15 +83,18 @@ export class Crystals extends Effect<CrystalsContext> {
         for (let i = 0; i < count; i++) {
             const radius = randomNumber(minRadius, maxRadius);
             const homed = homes.length > 0;
+            const calm = this.options.calm === true;
+            const roaming = calm ? Crystals.CALM_MAX_VELOCITY : 0.1;
             const head = new Head({
                 position: { x: 0, y: 0 },
                 size: { x: radius * 2, y: radius * 2 },
                 // A homed crystal must keep up with a scrolling page; a free one just drifts.
-                maxAbsoluteVelocity: homed ? { x: 1.6, y: 1.6 } : { x: 0.1, y: 0.1 },
+                maxAbsoluteVelocity: homed ? { x: 1.6, y: 1.6 } : { x: roaming, y: roaming },
                 priority: 8,
             });
             head.margin = homed ? radius * 8 : 0;
-            head.nudge = homed ? 0.02 : 0.05;
+            head.nudge = homed ? 0.02 : calm ? Crystals.CALM_MAX_VELOCITY * 0.2 : 0.05;
+            head.turns = !calm;
             const state: CrystalState = { x: 0, y: 0, radius, exploded: false };
             states.push(state);
             this.crystals.push({
@@ -119,7 +128,7 @@ export class Crystals extends Effect<CrystalsContext> {
         // One click breaks the nearest crystal under the pointer, not every one in reach.
         let clicked: Crystal | undefined;
         const pointer = tickContext.mousePosition;
-        if (tickContext.mouseJustPressed && !tickContext.mouseOnInteractive && pointer) {
+        if (this.options.breakable !== false && tickContext.mouseJustPressed && !tickContext.mouseOnInteractive && pointer) {
             let nearest = Infinity;
             for (const crystal of this.crystals) {
                 const distance = distanceV2(pointer, crystal.head.position);
@@ -169,6 +178,9 @@ export class Crystals extends Effect<CrystalsContext> {
 
     /** True when something that happened last tick should break this crystal. */
     private setOff(crystal: Crystal, tickContext: TickContext): boolean {
+        if (this.options.breakable === false) {
+            return false;
+        }
         const position = crystal.head.position;
         for (const event of tickContext.events('rainEater:exploded')) {
             if (distanceV2(position, event.payload) < Crystals.CHAIN_RANGE) {

@@ -17,6 +17,8 @@ export interface RainEaterOptions {
     homeAlign?: Vector3;
     /** Energy gained per droplet eaten. */
     energyPerDrop?: number;
+    /** Drift slowly and smoothly instead of darting about: a low top speed, gentle pushes, no sudden turns. */
+    calm?: boolean;
 }
 
 /**
@@ -48,6 +50,9 @@ export class RainEater extends Effect<RainEaterContext> {
     public static readonly RANDOM_MAX_ACCELERATION = 0.0001;
     public static readonly RANDOM_MIN_ACCELERATION = -0.0001;
     public static readonly ACCELERATION_CHANGE_INTERVAL = 500;
+    /** A calm head: top speed in px/ms, and the largest push it gives itself in px/ms². */
+    public static readonly CALM_MAX_VELOCITY = 0.045;
+    public static readonly CALM_MAX_ACCELERATION = 0.000012;
     /** Energy lost per millisecond when nothing is being eaten. */
     public static readonly ENERGY_LEAK = 0.000006;
     /** Energy gained when lightning lands on the head. */
@@ -57,6 +62,7 @@ export class RainEater extends Effect<RainEaterContext> {
     private readonly homes: readonly string[];
     private readonly homeAlign: Vector3;
     private readonly energyPerDrop: number;
+    private readonly calm: boolean;
 
     private energy = 0;
     private pulse = 0;
@@ -74,6 +80,7 @@ export class RainEater extends Effect<RainEaterContext> {
         this.homes = options.homes ?? [];
         this.homeAlign = options.homeAlign ?? { x: 0.5, y: 0.5 };
         this.energyPerDrop = options.energyPerDrop ?? 0.0012;
+        this.calm = options.calm ?? false;
         this.initializeHead();
         this.context = {
             headPosition: this.headParticle.position,
@@ -93,24 +100,27 @@ export class RainEater extends Effect<RainEaterContext> {
 
     public generateNewHead(): void {
         const homed = this.homes.length > 0;
+        const roaming = this.calm ? RainEater.CALM_MAX_VELOCITY : RainEater.MAX_ABSOLUTE_VELOCITY_X;
         this.headParticle = new Head({
             position: { x: 100, y: 100 },
             size: { x: this.radius * 2, y: this.radius * 2 },
             // A homed head must be able to keep up with a scrolling page.
             maxAbsoluteVelocity: homed
                 ? { x: 1.6, y: 1.6 }
-                : { x: RainEater.MAX_ABSOLUTE_VELOCITY_X, y: RainEater.MAX_ABSOLUTE_VELOCITY_Y },
+                : { x: roaming, y: this.calm ? roaming : RainEater.MAX_ABSOLUTE_VELOCITY_Y },
             priority: 10,
         });
         this.headParticle.margin = homed ? this.radius * 6 : 0;
         this.headParticle.nudge = homed ? 0.035 : undefined;
+        if (this.calm) {
+            this.headParticle.turns = false;
+            this.headParticle.nudge = RainEater.CALM_MAX_VELOCITY * 0.12;
+        }
     }
 
     public switchAccelerationDirection(): void {
-        this.headParticle.acceleration = {
-            x: randomNumber(RainEater.RANDOM_MIN_ACCELERATION, RainEater.RANDOM_MAX_ACCELERATION),
-            y: randomNumber(RainEater.RANDOM_MIN_ACCELERATION, RainEater.RANDOM_MAX_ACCELERATION),
-        };
+        const reach = this.calm ? RainEater.CALM_MAX_ACCELERATION : RainEater.RANDOM_MAX_ACCELERATION;
+        this.headParticle.acceleration = { x: randomNumber(-reach, reach), y: randomNumber(-reach, reach) };
     }
 
     public initialize(): void {

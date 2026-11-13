@@ -59,8 +59,6 @@ export class Rain extends Effect<RainContext> {
     public static readonly PARTICLES_PER_FALLING_DROP = 5;
     /** Share of droplets that meet page elements; the rest pass behind them. */
     public static readonly INTERACTIVE_SHARE = 0.5;
-    /** Size of a droplet that lets go of an element: bigger than most rain. */
-    public static readonly DETACHED_SIZE: Vector3 = { x: 3.6, y: 8 };
 
     private readonly drops: ParticleSet<Droplet>;
     public readonly fallParticles: ParticleSet<FallParticle>;
@@ -103,7 +101,6 @@ export class Rain extends Effect<RainContext> {
             onRemove: release,
         });
         this.water = new PageWater({
-            acquireBead: () => this.acquireView(this.dotTexture),
             acquireTail: () => this.acquireView(this.dropTexture),
             release: (view) => this.releasePixiView(view),
             spawnDroplet: (x, headY, water, velocityY) => this.spawnDetached(x, headY, water, velocityY),
@@ -314,7 +311,8 @@ export class Rain extends Effect<RainContext> {
         if (!this.drops.canSpawn()) {
             return false;
         }
-        const size = Rain.DETACHED_SIZE;
+        // The size the hanging drop had reached, so it does not change as it lets go.
+        const size = PageWater.dropSize(water, { x: 0, y: 0 });
         const droplet = new Droplet({
             position: { x: centerX - size.x / 2, y: headY - size.y },
             velocity: { x: 0, y: velocityY },
