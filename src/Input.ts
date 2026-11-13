@@ -13,6 +13,12 @@ const TYPING =
  * edges. Edges accumulate between frames and are handed to exactly one tick, however many
  * catch-up ticks a frame runs.
  *
+ * By default it listens to the whole window: the engine's usual job is a background behind a
+ * page, and a press anywhere on the page is a press on the scene. Given a `stage` element
+ * (`input: 'stage'` on the manager) it listens to that element only: the pointer counts while it
+ * is over the element, keys while the element has focus, and Space and the arrow keys stop
+ * scrolling the page while it does.
+ *
  * Every listener is registered against one AbortController and removed in `dispose`.
  */
 export class InputState {
@@ -30,21 +36,25 @@ export class InputState {
     private readonly abort = new AbortController();
     private originX = 0;
     private originY = 0;
+    private readonly stage: HTMLElement | null;
 
-    public constructor(target: Window = window) {
+    public constructor(target: Window = window, stage: HTMLElement | null = null) {
+        this.stage = stage;
         const options = { signal: this.abort.signal, passive: true } as const;
 
         target.addEventListener(
             'pointermove',
             (event) => {
-                this.mousePosition = { x: event.clientX - this.originX, y: event.clientY - this.originY };
+                this.mousePosition = this.over(event)
+                    ? { x: event.clientX - this.originX, y: event.clientY - this.originY }
+                    : undefined;
             },
             options,
         );
         target.addEventListener(
             'pointerdown',
             (event) => {
-                if (event.button !== 0) {
+                if (event.button !== 0 || !this.over(event)) {
                     return;
                 }
                 this.mousePosition = { x: event.clientX - this.originX, y: event.clientY - this.originY };
@@ -106,6 +116,9 @@ export class InputState {
                 if (event.target instanceof Element && event.target.closest(TYPING)) {
                     return;
                 }
+                if (stage && target.document.activeElement !== stage) {
+                    return;
+                }
                 const key = normalizeKey(event.key);
                 if (!this.keysPressed.includes(key)) {
                     this.keysPressed.push(key);
@@ -126,6 +139,43 @@ export class InputState {
             options,
         );
         this.scrollY = target.scrollY;
+
+        if (stage) {
+            // While the stage has focus, its keys are the scene's, not the page's scroll keys.
+            stage.addEventListener(
+                'keydown',
+                (event) => {
+                    if (event.key === ' ' || event.key.startsWith('Arrow')) {
+                        event.preventDefault();
+                    }
+                },
+                { signal: this.abort.signal },
+            );
+            stage.addEventListener(
+                'blur',
+                () => {
+                    for (const key of this.keysPressed) {
+                        this.justReleasedKeys.push(key);
+                    }
+                    this.keysPressed = [];
+                },
+                { signal: this.abort.signal },
+            );
+        }
+    }
+
+    /** Over the stage element, or anywhere when listening to the whole window. */
+    private over(event: PointerEvent): boolean {
+        if (!this.stage) {
+            return true;
+        }
+        const box = this.stage.getBoundingClientRect();
+        return (
+            event.clientX >= box.left &&
+            event.clientX <= box.right &&
+            event.clientY >= box.top &&
+            event.clientY <= box.bottom
+        );
     }
 
     /** Viewport offset of the canvas, so pointer positions land in stage space. */

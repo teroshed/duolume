@@ -11,7 +11,7 @@ export interface PageRipplesOptions {
 
 /**
  * The page's answer to `page:hit`: a ring that spreads on top of the element something
- * stopped against.
+ * stopped against. Works for a full-page canvas and for one placed anywhere in the page.
  *
  * The engine's canvas sits behind the page, so it cannot draw on an element's face. This
  * puts one small layer above the page (it never takes clicks or focus) and plays the ripple
@@ -53,12 +53,14 @@ export function attachPageRipples(manager: VisualsManager, options: PageRipplesO
             return;
         }
 
+        // Stage pixels are measured from the canvas; the layer covers the viewport.
+        const origin = manager.canvas.getBoundingClientRect();
         // A window the size of the element keeps the ring from spilling past its edges.
         const frame = document.createElement('div');
         Object.assign(frame.style, {
             position: 'absolute',
-            left: `${rect.x}px`,
-            top: `${rect.y}px`,
+            left: `${origin.left + rect.x}px`,
+            top: `${origin.top + rect.y}px`,
             width: `${rect.width}px`,
             height: `${rect.height}px`,
             overflow: 'hidden',

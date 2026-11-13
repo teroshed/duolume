@@ -21,6 +21,15 @@ const TRAIL_CAPACITY = 600;
 const DOT_TEX = 32;
 const STEM_TINT = 0xffb45a;
 
+export interface FireworksOptions {
+    /** Shells in flight at once at full budget. Default `FIREWORK_COUNT` (10). Also `setShellTarget`. */
+    shells?: number;
+    /** Minimum milliseconds between launches. Default `LAUNCH_INTERVAL` (280). */
+    launchInterval?: number;
+    /** Sparks in one burst at full budget. Default `FIREWORK_EXPLOSION_PARTICLE_COUNT` (100). */
+    sparksPerBurst?: number;
+}
+
 /**
  * The original Fireworks, drawn with both renderers.
  *
@@ -101,15 +110,21 @@ export class FireworksEffect extends Effect<FireworksContext> implements Firewor
     private readonly force: Vector3 = { x: 0, y: 0 };
     private readonly shellColor = new Color();
     private readonly context: FireworksContext = { fireworks: 0, sparks: 0 };
-    private launchTimer: number = FireworksEffect.LAUNCH_INTERVAL;
-    private shellTarget: number = FireworksEffect.FIREWORK_COUNT;
+    private readonly launchInterval: number;
+    private readonly sparksPerBurst: number;
+    private launchTimer: number;
+    private shellTarget: number;
     private shellsLaunched = 0;
     private flash = 0;
     /** The tick being simulated: `detonate` is called back from inside it and needs its channels. */
     private tick: TickContext | null = null;
 
-    constructor() {
+    constructor(options: FireworksOptions = {}) {
         super();
+        this.launchInterval = options.launchInterval ?? FireworksEffect.LAUNCH_INTERVAL;
+        this.sparksPerBurst = options.sparksPerBurst ?? FireworksEffect.FIREWORK_EXPLOSION_PARTICLE_COUNT;
+        this.launchTimer = this.launchInterval;
+        this.shellTarget = Math.max(1, Math.floor(options.shells ?? FireworksEffect.FIREWORK_COUNT));
         this.trails = new ParticleSet<FireworkTrail>({
             capacity: TRAIL_CAPACITY,
             exitDuration: 220,
@@ -213,7 +228,7 @@ export class FireworksEffect extends Effect<FireworksContext> implements Firewor
         const y = stem.position.y;
         const power = stem.power;
 
-        const amount = Math.round(FireworksEffect.FIREWORK_EXPLOSION_PARTICLE_COUNT * tick.budget.budget);
+        const amount = Math.round(this.sparksPerBurst * tick.budget.budget);
         this.burst(x, y, amount, this.nextShellColor(tick.theme));
 
         const event: FireworkExplodedEvent = { x, y, power };
@@ -353,7 +368,7 @@ export class FireworksEffect extends Effect<FireworksContext> implements Firewor
         // One launch at a time: the original refilled to ten in a single tick.
         this.launchTimer += dt;
         const target = Math.max(1, Math.round(this.shellTarget * tickContext.budget.budget));
-        if (inFlight < target && this.launchTimer >= FireworksEffect.LAUNCH_INTERVAL) {
+        if (inFlight < target && this.launchTimer >= this.launchInterval) {
             this.launchTimer = 0;
             this.launch(tickContext);
             inFlight++;

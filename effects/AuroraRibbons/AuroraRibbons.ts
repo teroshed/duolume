@@ -23,6 +23,13 @@ interface Entry {
     view: RibbonView | undefined;
 }
 
+export interface AuroraRibbonsOptions {
+    /** Ribbons at the start. Default `START_COUNT` (3). */
+    count?: number;
+    /** Most ribbons the W key can add up to. Default `MAX_RIBBONS` (24). */
+    maxRibbons?: number;
+}
+
 /**
  * Light, wavy ribbons drifting across the sky, drawn with one Pixi rope mesh per ribbon.
  *
@@ -46,10 +53,18 @@ export class AuroraRibbons extends Effect<AuroraRibbonsContext> {
     private readonly context: AuroraRibbonsContext = { count: 0 };
     private readonly scratch: Vector3 = { x: 0, y: 0 };
     private readonly origin: Vector3 = { x: 0, y: 0 };
+    private readonly startCount: number;
+    private readonly maxRibbons: number;
     private glow = 0.5;
     private seeded = false;
     private lastAccent = -1;
     private lastAccentAlt = -1;
+
+    constructor(options: AuroraRibbonsOptions = {}) {
+        super();
+        this.maxRibbons = Math.max(AuroraRibbons.MIN_RIBBONS, options.maxRibbons ?? AuroraRibbons.MAX_RIBBONS);
+        this.startCount = Math.min(this.maxRibbons, Math.max(AuroraRibbons.MIN_RIBBONS, options.count ?? AuroraRibbons.START_COUNT));
+    }
 
     public initialize(): void {}
 
@@ -77,7 +92,7 @@ export class AuroraRibbons extends Effect<AuroraRibbonsContext> {
         // Seeded here rather than in initialize() so the 12%..55% height range uses the real stage size.
         if (!this.seeded) {
             this.seeded = true;
-            for (let i = 0; i < AuroraRibbons.START_COUNT; i++) {
+            for (let i = 0; i < this.startCount; i++) {
                 entries.push({ ribbon: Ribbon.random(tick.stage.height), view: undefined });
             }
         }
@@ -86,7 +101,7 @@ export class AuroraRibbons extends Effect<AuroraRibbonsContext> {
         if (pressed) {
             for (const key of pressed) {
                 const k = key.toLowerCase();
-                if (k === 'w' && entries.length < AuroraRibbons.MAX_RIBBONS) {
+                if (k === 'w' && entries.length < this.maxRibbons) {
                     entries.push({ ribbon: Ribbon.random(tick.stage.height), view: undefined });
                 } else if (k === 's' && entries.length > AuroraRibbons.MIN_RIBBONS) {
                     const removed = entries.pop();

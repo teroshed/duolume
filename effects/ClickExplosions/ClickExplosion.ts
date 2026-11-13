@@ -14,6 +14,13 @@ import type { ClickExplosionContext } from '../contracts';
 
 const MAX_SPARKS = 1600;
 
+export interface ClickExplosionOptions {
+    /** Sparks in one press at full budget. Default `PRESS_BURST_COUNT` (34). */
+    pressBurst?: number;
+    /** Downward pull on sparks in px/ms². Default `GRAVITY` (0.00055). 0 lets them float. */
+    gravity?: number;
+}
+
 /**
  * The original ClickExplosion, with real depth: sparks are Three.js points that fly
  * toward and away from the viewer as well as across the stage.
@@ -55,6 +62,14 @@ export class ClickExplosion extends Effect<ClickExplosionContext> {
     private looks!: BufferAttribute; // x = size, y = alpha, z = hue mix
     private readonly force: Vector3 = { x: 0, y: 0 };
     private readonly context: ClickExplosionContext = { explosions: 0, lastBurst: null };
+    private readonly pressBurst: number;
+    private readonly gravity: number;
+
+    constructor(options: ClickExplosionOptions = {}) {
+        super();
+        this.pressBurst = options.pressBurst ?? ClickExplosion.PRESS_BURST_COUNT;
+        this.gravity = options.gravity ?? ClickExplosion.GRAVITY;
+    }
 
     public initialize(): void {
         const geometry = new BufferGeometry();
@@ -146,7 +161,7 @@ export class ClickExplosion extends Effect<ClickExplosionContext> {
 
         if (mouse && !tickContext.mouseOnInteractive) {
             if (tickContext.mouseJustPressed) {
-                this.burst(mouse.x, mouse.y, Math.round(ClickExplosion.PRESS_BURST_COUNT * budget), 1);
+                this.burst(mouse.x, mouse.y, Math.round(this.pressBurst * budget), 1);
                 this.context.lastBurst = { x: mouse.x, y: mouse.y };
                 tickContext.forces.shock(this.effectName, { x: mouse.x, y: mouse.y, strength: 0.0042, maxRadius: 460 });
             } else if (tickContext.mouseDown) {
@@ -183,7 +198,7 @@ export class ClickExplosion extends Effect<ClickExplosionContext> {
             }
             forces.sample(px[i], py[i], force, this.effectName);
             vx[i] = (vx[i] + force.x * dt * 1.6) * keep;
-            vy[i] = (vy[i] + (force.y * 1.6 + ClickExplosion.GRAVITY) * dt) * keep;
+            vy[i] = (vy[i] + (force.y * 1.6 + this.gravity) * dt) * keep;
             vz[i] *= keep;
             px[i] += vx[i] * dt;
             py[i] += vy[i] * dt;

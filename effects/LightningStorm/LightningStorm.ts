@@ -15,6 +15,16 @@ interface LightningBolt {
     branches: Vector3[][];
 }
 
+export interface LightningStormOptions {
+    /** Charge one landed droplet adds; a point fires at 100. Default 2. */
+    chargePerDrop?: number;
+    /** Quiet milliseconds between bolts that fire on their own: a random time in this range. Default 1200 and 3800. */
+    strikeIntervalMin?: number;
+    strikeIntervalMax?: number;
+    /** 0..1: how often a bolt that could reach the rain eater goes for it. Default 0.6. */
+    eaterStrikeChance?: number;
+}
+
 /**
  * The original LightningStorm, drawn with Pixi Graphics.
  *
@@ -58,8 +68,17 @@ export class LightningStorm extends Effect<LightningStormContext> {
     private boltGraphics!: Graphics;
     private chargeGraphics!: Graphics;
 
-    constructor() {
+    private readonly chargePerDrop: number;
+    private readonly strikeIntervalMin: number;
+    private readonly strikeIntervalMax: number;
+    private readonly eaterStrikeChance: number;
+
+    constructor(options: LightningStormOptions = {}) {
         super();
+        this.chargePerDrop = options.chargePerDrop ?? LightningStorm.CHARGE_PER_DROP;
+        this.strikeIntervalMin = options.strikeIntervalMin ?? LightningStorm.STRIKE_INTERVAL_MIN_MS;
+        this.strikeIntervalMax = Math.max(this.strikeIntervalMin, options.strikeIntervalMax ?? LightningStorm.STRIKE_INTERVAL_MAX_MS);
+        this.eaterStrikeChance = options.eaterStrikeChance ?? LightningStorm.EATER_STRIKE_CHANCE;
         this.context = { chargePoints: this.chargePoints, activeLightning: 0 };
     }
 
@@ -72,7 +91,7 @@ export class LightningStorm extends Effect<LightningStormContext> {
         this.host.pixi.addChild(this.boltGraphics);
     }
 
-    private addChargeAtPosition(position: Vector3, amount: number = LightningStorm.CHARGE_PER_DROP): void {
+    private addChargeAtPosition(position: Vector3, amount: number = this.chargePerDrop): void {
         for (const chargePoint of this.chargePoints) {
             if (distanceV2(chargePoint.position, position) < LightningStorm.CHARGE_RADIUS) {
                 chargePoint.charge = Math.min(chargePoint.maxCharge, chargePoint.charge + amount);
@@ -137,7 +156,7 @@ export class LightningStorm extends Effect<LightningStormContext> {
 
         // The eater is preferred whenever any ready point can reach it; the nearest point fires.
         const eater = tickContext.read('rainEater');
-        if (eater && !eater.exploded && Math.random() < LightningStorm.EATER_STRIKE_CHANCE) {
+        if (eater && !eater.exploded && Math.random() < this.eaterStrikeChance) {
             let nearest: ChargePoint | undefined;
             let nearestDistance = LightningStorm.EATER_STRIKE_RANGE;
             for (const cp of ready) {
@@ -230,8 +249,8 @@ export class LightningStorm extends Effect<LightningStormContext> {
             this.spawnLightningBetweenChargedPoints(tickContext);
             if (this.spawnedThisTick) {
                 this.cooldown = randomNumber(
-                    LightningStorm.STRIKE_INTERVAL_MIN_MS,
-                    LightningStorm.STRIKE_INTERVAL_MAX_MS,
+                    this.strikeIntervalMin,
+                    this.strikeIntervalMax,
                 );
             }
         }

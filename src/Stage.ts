@@ -17,6 +17,8 @@ export interface AnchorRect {
 interface AnchorEntry {
     element: Element;
     rect: AnchorRect;
+    /** Found by `watchAll` (and dropped again when it leaves the page), not added with `observe`. */
+    auto: boolean;
 }
 
 const FOV_DEGREES = 35;
@@ -41,6 +43,11 @@ export class Stage {
     private anchorList: AnchorRect[] = [];
     private readonly taggedCache = new Map<string, AnchorRect[]>();
     private readonly scratch = new ThreeVector3();
+    private watched: ParentNode | null = null;
+    private mutations: MutationObserver | null = null;
+    private rescan = false;
+    /** Called when watched page elements change, so a still picture can be redrawn. */
+    public onAnchorsChanged?: () => void;
 
     public constructor() {
         this.camera = new PerspectiveCamera(FOV_DEGREES, 1, 1, 10000);
@@ -85,6 +92,7 @@ export class Stage {
         this.anchors.set(name, {
             element,
             rect: { name, x: 0, y: 0, width: 0, height: 0, visible: false, tags },
+            auto: false,
         });
         this.anchorList = Array.from(this.anchors.values(), (entry) => entry.rect);
     }
@@ -95,7 +103,7 @@ export class Stage {
         }
     }
 
-    /** Pick up every `[data-fx-anchor]` element under `root`. Tags come from `data-fx-tags`. */
+    /** Pick up every `[data-fx-anchor]` element under `root`, once. Tags come from `data-fx-tags`. */
     public observeAll(root: ParentNode): void {
         for (const element of root.querySelectorAll('[data-fx-anchor]')) {
             const name = element.getAttribute('data-fx-anchor');
@@ -105,6 +113,57 @@ export class Stage {
             const tags = (element.getAttribute('data-fx-tags') ?? '').split(/\s+/).filter(Boolean);
             this.observe(name, element, tags);
         }
+    }
+
+    /**
+     * Like `observeAll`, and keep following the page: elements added, removed or retagged later are
+     * picked up before the next frame. The manager does this for its `anchors` root. A name given
+     * to `observe` by hand is left alone.
+     */
+    public watchAll(root: ParentNode): void {
+        this.mutations?.disconnect();
+        this.watched = root;
+        this.scan(root);
+        this.mutations = new MutationObserver(() => {
+            this.rescan = true;
+            this.onAnchorsChanged?.();
+        });
+        this.mutations.observe(root as unknown as Node, {
+            subtree: true,
+            childList: true,
+            attributes: true,
+            attributeFilter: ['data-fx-anchor', 'data-fx-tags'],
+        });
+    }
+
+    private scan(root: ParentNode): void {
+        const found = new Set<string>();
+        for (const element of root.querySelectorAll('[data-fx-anchor]')) {
+            const name = element.getAttribute('data-fx-anchor');
+            if (!name || found.has(name)) {
+                continue;
+            }
+            found.add(name);
+            const tags = (element.getAttribute('data-fx-tags') ?? '').split(/\s+/).filter(Boolean);
+            const existing = this.anchors.get(name);
+            if (existing && !existing.auto) {
+                continue;
+            }
+            if (existing && existing.element === element && existing.rect.tags.join(' ') === tags.join(' ')) {
+                continue;
+            }
+            this.anchors.set(name, {
+                element,
+                rect: { name, x: 0, y: 0, width: 0, height: 0, visible: false, tags },
+                auto: true,
+            });
+        }
+        for (const [name, entry] of this.anchors) {
+            if (entry.auto && !found.has(name)) {
+                this.anchors.delete(name);
+            }
+        }
+        this.anchorList = Array.from(this.anchors.values(), (entry) => entry.rect);
     }
 
     public anchor(name: string): AnchorRect | undefined {
@@ -130,6 +189,10 @@ export class Stage {
 
     /** Refresh anchor rectangles. `originX/originY` is the canvas's own viewport offset. */
     public measure(originX = 0, originY = 0): void {
+        if (this.rescan && this.watched) {
+            this.rescan = false;
+            this.scan(this.watched);
+        }
         this.taggedCache.clear();
         for (const entry of this.anchors.values()) {
             const box = entry.element.getBoundingClientRect();
@@ -149,6 +212,9 @@ export class Stage {
     }
 
     public clearAnchors(): void {
+        this.mutations?.disconnect();
+        this.mutations = null;
+        this.watched = null;
         this.anchors.clear();
         this.anchorList = [];
     }

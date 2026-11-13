@@ -92,8 +92,7 @@ export class Simulation {
             theme,
             budget,
             read<K extends string>(effectName: K): Readonly<ContextOf<K>> | undefined {
-                const found =
-                    this.previousEffectsContext?.get(effectName) ?? this.previousTickContext?.get(effectName);
+                const found = this.previousEffectsContext.get(effectName) ?? this.previousTickContext.get(effectName);
                 if (!found) {
                     self.noteUnknownName(effectName);
                 }
@@ -199,8 +198,8 @@ export class Simulation {
         const ctx = this.tickContext;
 
         // The map filled last tick becomes "previous tick"; the older one is cleared and refilled.
-        const filled = ctx.previousEffectsContext!;
-        const stale = ctx.previousTickContext!;
+        const filled = ctx.previousEffectsContext;
+        const stale = ctx.previousTickContext;
         stale.clear();
         ctx.previousTickContext = filled;
         ctx.previousEffectsContext = stale;
@@ -246,7 +245,7 @@ export class Simulation {
 
         this.forces.step(ctx.timeDelta);
         ctx.time += ctx.timeDelta;
-        ctx.totalTickCount = (ctx.totalTickCount ?? 0) + 1;
+        ctx.totalTickCount += 1;
     }
 
     /**
@@ -291,7 +290,7 @@ export class Simulation {
         list.push({
             type,
             source: this.currentEffect,
-            tick: this.tickContext.totalTickCount ?? 0,
+            tick: this.tickContext.totalTickCount,
             payload,
         });
     }

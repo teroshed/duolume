@@ -50,9 +50,14 @@ export interface EngineEventMap {
     'page:hit': PageHitEvent;
 }
 
+/**
+ * What `tick.read(name)` gives back. A registered name gets its interface; any other name gets a
+ * loose bag whose fields can be used directly, so typing stays optional in practice too.
+ */
 export type ContextOf<K extends string> = K extends keyof EffectContextMap
     ? EffectContextMap[K]
-    : Record<string, unknown>;
+    : // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      Record<string, any>;
 
 export type PayloadOf<K extends string> = K extends keyof EngineEventMap ? EngineEventMap[K] : unknown;
 
@@ -89,24 +94,26 @@ export interface BudgetState {
 /**
  * Passed to every `onTick`. The original fields keep their names and units:
  * `timeDelta` is milliseconds, positions are stage pixels with the origin top-left.
+ * Every field is always present except `mousePosition`, which is undefined until the pointer
+ * has moved (and, with `input: 'stage'`, while it is off the canvas).
  */
 export interface TickContext {
     timeDelta: number;
-    canvasDimensions?: Vector3;
+    canvasDimensions: Vector3;
     /** The complete map published during the preceding tick. */
-    previousTickContext?: Map<string, EffectContext>;
+    previousTickContext: Map<string, EffectContext>;
     /** Filled as effects run during this tick: an effect can read what earlier effects just returned. */
-    previousEffectsContext?: Map<string, EffectContext>;
-    totalTickCount?: number;
+    previousEffectsContext: Map<string, EffectContext>;
+    totalTickCount: number;
     mousePosition?: Vector3;
     mouseDown: boolean;
     keysPressed: string[];
-    justPressedKeys?: string[];
-    justReleasedKeys?: string[];
-    mouseJustPressed?: boolean;
-    mouseJustReleased?: boolean;
-    wheelDelta?: number;
-    speedMultiplier?: number;
+    justPressedKeys: string[];
+    justReleasedKeys: string[];
+    mouseJustPressed: boolean;
+    mouseJustReleased: boolean;
+    wheelDelta: number;
+    speedMultiplier: number;
 
     // ---- additions ----
 
@@ -152,16 +159,17 @@ export interface TimedContext {
     tickDelta: number;
     /** Simulation clock in milliseconds, including the partial tick. */
     time: number;
-    canvasDimensions?: Vector3;
+    canvasDimensions: Vector3;
     mousePosition?: Vector3;
     mouseDown: boolean;
     keysPressed: string[];
+    /** Input edges belong to ticks; read them in `onTick`. They are not set during render. */
     justPressedKeys?: string[];
     justReleasedKeys?: string[];
     mouseJustPressed?: boolean;
     mouseJustReleased?: boolean;
     wheelDelta?: number;
-    speedMultiplier?: number;
+    speedMultiplier: number;
     stage: Stage;
     theme: Theme;
     budget: BudgetState;

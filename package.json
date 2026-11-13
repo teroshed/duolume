@@ -1,9 +1,22 @@
 {
-  "name": "web-visualizer-manager",
+  "name": "duolume",
   "private": true,
   "version": "0.1.0",
-  "description": "Daniel's visuals engine: named effects on PixiJS and Three.js that react to each other, with a library of effects and a lab page.",
+  "description": "Duolume: Daniel's visuals engine. Named effects on PixiJS and Three.js that react to each other and to the page, with a library of effects and a lab page.",
+  "license": "MIT",
   "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./src/types.ts",
+    "./effects": "./effects/index.ts",
+    "./effects/*": "./effects/*.ts"
+  },
+  "files": [
+    "src",
+    "effects",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 3031 --strictPort --open /lab/",
     "typecheck": "tsc --noEmit",

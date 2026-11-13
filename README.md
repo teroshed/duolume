@@ -1,8 +1,16 @@
-# Web visualizer manager
+# Duolume
 
-Daniel's visuals engine: a small animation engine that runs **PixiJS and Three.js as one
+Daniel's visuals engine (package `duolume`, repository `web-visualizer-manager`): a small animation engine that runs **PixiJS and Three.js as one
 scene**, where effects drawn by either renderer can affect each other — and where writing a
 new effect is meant to be laughably intuitive.
+
+| | |
+| --- | --- |
+| Status | 0.1.0, a preview: the API can still change between versions |
+| Install | not on npm yet; TypeScript source, added from this repository (see the package note below) |
+| Needs | `pixi.js` 8.20.1, `three` 0.187.0, and a bundler that compiles TypeScript (Vite) |
+| Docs | the `engine-docs` site: a tutorial of nine live, editable lessons, an API reference and examples |
+| License | MIT |
 
 It is a rebuild of the original canvas engine (`E:\Desktop\Coding\VisualizerEngine\Original`,
 Oct–Nov 2025) and keeps its contract: a `VisualsManager` runs named `Effect` classes through
@@ -11,29 +19,37 @@ effects can read; particles are motion objects in pixels and milliseconds. The n
 same on purpose.
 
 ```
-src/       the engine
-effects/   the library of effects built on it (one folder each) + contracts.ts
+src/       the engine                                   import from 'duolume'
+effects/   the library of effects (one folder each),    import from 'duolume/effects'
+           index.ts, and contracts.ts
 tests/     unit tests for the renderer-free parts
 lab/       a page that runs every effect, with controls
 ```
+
+The package is TypeScript source, not a build: `package.json` exports `src/index.ts` as
+`duolume`, `src/types.ts` as `duolume/types`, `effects/index.ts` as `duolume/effects`, and any
+effect file by path (`duolume/effects/Crystal/CrystalBody`). A bundler such as Vite compiles it
+with the page. It is not published; a project adds it as a local dependency
+(`bun add ../web-visualizer-manager`) or carries a copy.
 
 ## Writing an effect
 
 Copy `effects/Blank/`, rename the class and `effectName`, fill in four methods:
 
 ```ts
-import { Effect } from '../../src/Effect';
-import type { EffectContext, TickContext, TimedContext } from '../../src/types';
+import { Effect } from 'duolume';
+import type { EffectContext, TickContext, TimedContext } from 'duolume';
 
-export class Wind extends Effect {
-    public effectName: string = 'wind';
+// A small version of effects/Wind/Wind.ts.
+export class Breeze extends Effect {
+    public effectName: string = 'breeze';
 
     public initialize(): void {}                     // create what you draw (this.host.pixi / .three)
 
     public onTick(tickContext: TickContext): EffectContext {
-        const strength = tickContext.keysPressed.includes('arrowright') ? 0.0011 : 0.0002;
-        tickContext.forces.add({ kind: 'wind', owner: this.effectName, x: 0, y: 0, radius: 0, strength, dirX: 1, dirY: 0 });
-        return this.publish({ strength });           // what other effects can read
+        const x = tickContext.keysPressed.includes('arrowright') ? 0.0011 : 0.0002;
+        tickContext.forces.add({ kind: 'wind', owner: this.effectName, x: 0, y: 0, radius: 0, strength: x, dirX: 1, dirY: 0 });
+        return this.publish({ x, y: 0 });            // what other effects can read
     }
 
     public onRender(timedContext: TimedContext): void {}   // move what you drew; never change simulation state
@@ -44,10 +60,19 @@ export class Wind extends Effect {
 and add it to a page:
 
 ```ts
+import { VisualsManager } from 'duolume';
+import { Rain, Wind } from 'duolume/effects';
+
 const manager = await VisualsManager.create(canvas);
-manager.addEffect(new Wind()).addEffect(new Rain());
+manager.addEffect(new Breeze()).addEffect(new Rain());
 manager.run();
 ```
+
+Inside this repository the effects import from relative paths (`'../../src/Effect'`), because
+they are the package. Pages and projects use the package names.
+
+A canvas belongs to one manager. `cleanup()` hands its WebGL context back to the browser, so the
+next manager needs a new `<canvas>`; `create` throws a clear error when given a used one.
 
 That is the whole of it. An effect never calls another effect. It may draw with Pixi, with
 Three.js, with both, or with neither.
@@ -81,11 +106,21 @@ get eaten through the same mechanism as before.
 Contexts keep the original's ordered semantics. Events are an addition and are deliberately
 batched; the two are different on purpose, not one replacing the other.
 
-**Typing is optional.** An effect works with no declarations at all; its context is simply
-untyped for readers. To make `tick.read('wind')` and `tick.events('wind:gust')` typed, add an
-interface and one line to the registry at the bottom of `effects/contracts.ts`. That file is
-the single home for everything the library's effects share. Reading a name that no effect
-has logs a one-time warning, which catches typos.
+**Typing is optional.** An effect works with no declarations at all; reading its context gives
+a loose object whose fields can be used directly. To make `tick.read('wind')` and
+`tick.events('wind:gust')` typed, add an interface and one registry line. The library keeps all
+of its own in `effects/contracts.ts`; a project augments the same registry:
+
+```ts
+declare module 'duolume/types' {
+    interface EffectContextMap { breeze: { x: number; y: number } }
+    interface EngineEventMap { 'breeze:gust': { strength: number } }
+}
+```
+
+The module named there has to be `duolume/types`, the file that declares the registries; naming
+`duolume` does not merge. Reading a name that no effect has logs one `console.debug` per name
+(visible at the console's verbose level), which catches typos.
 
 ## The stage and the page
 
@@ -96,12 +131,29 @@ plane `z = 0` matches the Pixi layer pixel for pixel (`stage.toWorld(x, y, z)`,
 `Stage` also tracks DOM elements marked `data-fx-anchor="name"` (optional
 `data-fx-tags="ledge"`), so effects can react to the page: rain lands on tagged elements and
 crystal shards are stopped by them. `tick.stage.tagged('ledge')` is the list on screen now;
-`tick.stage.anchor('name')` is one element's rectangle.
+`tick.stage.anchor('name')` is one element's rectangle. The manager keeps following its
+`anchors` root: elements added, removed or retagged after `create` are picked up before the next
+frame. `stage.observe(name, element, tags)` adds one by hand.
 
 The page can answer back. An effect emits `page:hit` when something of its own stops on an
 element, and the page listens with `manager.on('page:hit', …)`. `attachPageRipples(manager)`
 is a ready-made listener: it plays a ripple on top of the element that was hit, which the
-engine's own canvas (behind the page) cannot do.
+engine's own canvas (behind the page) cannot do. It works for a full-page canvas and for one
+placed anywhere in the page.
+
+## Input
+
+By default the manager listens to the whole window: as a background behind a page, a press
+anywhere on the page is a press on the scene. A canvas that is one box in a page passes
+`input: 'stage'`:
+
+```ts
+const manager = await VisualsManager.create(canvas, { input: 'stage' });
+```
+
+The pointer then counts only while it is over the canvas (`mousePosition` is `undefined`
+elsewhere), keys only while the canvas has focus (it is given `tabindex="0"` if it has none),
+and Space and the arrow keys stop scrolling the page while it has focus.
 
 ## Time
 
@@ -146,6 +198,10 @@ Pixi and Three.js each keep their own WebGL context. That costs one or two textu
 frame and is the arrangement both libraries support without patching.
 
 ## The effect library
+
+Every library effect takes an optional options object: `new Rain({ dropCount: 300 })`,
+`new FireworksEffect({ shells: 4 })`. With none it runs as authored; the defaults are the
+effect's static constants. (`BlankEffect`, the template, has none.)
 
 | Effect | Drawn with | Listens to | Tells the others |
 | --- | --- | --- | --- |
@@ -196,6 +252,7 @@ its `engine/` folder. The lab differs only in its import paths (`../src` here,
 - An effect that throws is switched off for the rest of the session; the others keep running.
 - After a lost WebGL context the engine stops drawing until the browser restores it; it does
   not rebuild resources itself beyond what Pixi and Three.js do.
+- One manager per canvas, and a canvas is not reused after `cleanup()`.
 - Checked in desktop Chrome with the simulation stepped by hand. Not yet watched running in
   real time, and not yet run on a phone.
 

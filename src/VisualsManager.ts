@@ -21,8 +21,18 @@ export const DEFAULT_THEME: Theme = {
 export interface VisualsManagerOptions extends CompositorOptions {
     theme?: Partial<Theme>;
     governor?: GovernorOptions;
-    /** Where to look for `[data-fx-anchor]` elements. Default: `document`. Pass false to skip. */
+    /**
+     * Where to look for `[data-fx-anchor]` elements. Default: `document`. Pass false to skip.
+     * Elements added, removed or retagged later are picked up on their own.
+     */
     anchors?: ParentNode | false;
+    /**
+     * Where input comes from. `'window'` (default): the whole page, for a canvas behind the page.
+     * `'stage'`: the canvas only, for a canvas that is one box in a page. The pointer counts while
+     * it is over the canvas, keys while the canvas has focus (it is made focusable if it is not),
+     * and Space and the arrow keys then stop scrolling the page.
+     */
+    input?: 'window' | 'stage';
     /** Start with the simulation frozen (for reduced motion). Frames are then drawn only on demand. */
     motion?: boolean;
 }
@@ -35,6 +45,9 @@ interface EffectSlot {
 }
 
 const MAX_CATCH_UP_TICKS = 4;
+
+/** A canvas belongs to one manager for good: `cleanup` hands its WebGL context back to the browser. */
+const claimed = new WeakMap<HTMLCanvasElement, 'live' | 'retired'>();
 const NO_KEYS: string[] = [];
 
 /**
@@ -53,7 +66,8 @@ export class VisualsManager {
     public readonly governor: PopulationGovernor;
     public readonly compositor: Compositor;
 
-    private readonly canvas: HTMLCanvasElement;
+    /** The canvas the manager draws to. */
+    public readonly canvas: HTMLCanvasElement;
     private readonly input: InputState;
     private readonly slots = new Map<string, EffectSlot>();
     private readonly theme: Theme;
@@ -79,9 +93,23 @@ export class VisualsManager {
         canvasElement: HTMLCanvasElement,
         options: VisualsManagerOptions = {},
     ): Promise<VisualsManager> {
-        const stage = new Stage();
-        const compositor = await Compositor.create(canvasElement, stage, options);
-        return new VisualsManager(canvasElement, stage, compositor, options);
+        const owner = claimed.get(canvasElement);
+        if (owner) {
+            throw new Error(
+                owner === 'live'
+                    ? 'This canvas already has a VisualsManager. Add effects to that one, or give the new manager its own canvas.'
+                    : 'This canvas belonged to a VisualsManager that was cleaned up, which gave its WebGL context back. Create a new <canvas> for the next manager.',
+            );
+        }
+        claimed.set(canvasElement, 'live');
+        try {
+            const stage = new Stage();
+            const compositor = await Compositor.create(canvasElement, stage, options);
+            return new VisualsManager(canvasElement, stage, compositor, options);
+        } catch (error) {
+            claimed.delete(canvasElement);
+            throw error;
+        }
     }
 
     private constructor(
@@ -97,13 +125,20 @@ export class VisualsManager {
         this.governor = new PopulationGovernor(options.governor);
         this.simulation = new Simulation(stage, this.theme, this.governor);
         this.simulation.onEffectError = (name, phase, error) => this.reportError(name, phase, error);
-        this.input = new InputState(window);
+        const stageInput = options.input === 'stage';
+        if (stageInput && !canvasElement.hasAttribute('tabindex')) {
+            canvasElement.tabIndex = 0;
+        }
+        this.input = new InputState(window, stageInput ? canvasElement : null);
         this.motion = options.motion ?? true;
         this.compositor.setTheme(this.theme);
 
         const anchors = options.anchors === undefined ? document : options.anchors;
         if (anchors) {
-            stage.observeAll(anchors);
+            stage.onAnchorsChanged = () => {
+                this.invalidated = true;
+            };
+            stage.watchAll(anchors);
         }
 
         this.tickInput = {
@@ -315,6 +350,7 @@ export class VisualsManager {
             return;
         }
         this.disposed = true;
+        claimed.set(this.canvas, 'retired');
         this.stopRender();
         this.resizeObserver.disconnect();
         this.input.dispose();
@@ -340,7 +376,7 @@ export class VisualsManager {
             averageFps: this.governor.averageFps,
             budget: this.governor.budget,
             emergency: this.governor.emergency,
-            tickCount: this.simulation.tickContext.totalTickCount ?? 0,
+            tickCount: this.simulation.tickContext.totalTickCount,
             effects: this.getEffectEnabledState(),
             resolution: this.compositor.resolution,
             contextLost: this.compositor.lost,
