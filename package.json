@@ -1,19 +1,51 @@
 {
   "name": "duolume",
-  "private": true,
   "version": "0.1.0",
-  "description": "Duolume: Daniel's visuals engine. Named effects on PixiJS and Three.js that react to each other and to the page, with a library of effects and a lab page.",
+  "description": "A small framework for animated scenes: PixiJS and Three.js as one picture, built from effects that react to each other and to the page.",
   "license": "MIT",
+  "author": "teroshed",
+  "homepage": "https://duolume.danielsite.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/teroshed/duolume.git"
+  },
+  "bugs": {
+    "url": "https://github.com/teroshed/duolume/issues"
+  },
+  "keywords": [
+    "animation",
+    "effects",
+    "pixijs",
+    "three.js",
+    "webgl",
+    "particles",
+    "canvas",
+    "background"
+  ],
   "type": "module",
+  "types": "./lib/src/index.d.ts",
+  "module": "./lib/src/index.js",
   "exports": {
-    ".": "./src/index.ts",
-    "./types": "./src/types.ts",
-    "./effects": "./effects/index.ts",
-    "./effects/*": "./effects/*.ts"
+    ".": {
+      "types": "./lib/src/index.d.ts",
+      "default": "./lib/src/index.js"
+    },
+    "./types": {
+      "types": "./lib/src/types.d.ts",
+      "default": "./lib/src/types.js"
+    },
+    "./effects": {
+      "types": "./lib/effects/index.d.ts",
+      "default": "./lib/effects/index.js"
+    },
+    "./effects/*": {
+      "types": "./lib/effects/*.d.ts",
+      "default": "./lib/effects/*.js"
+    },
+    "./package.json": "./package.json"
   },
   "files": [
-    "src",
-    "effects",
+    "lib",
     "README.md",
     "LICENSE"
   ],
@@ -22,15 +54,19 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test tests",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview --host 127.0.0.1 --port 3032 --strictPort"
+    "build:lib": "bun scripts/build-lib.ts",
+    "preview": "vite preview --host 127.0.0.1 --port 3032 --strictPort",
+    "prepublishOnly": "bun run typecheck && bun test tests && bun run build:lib"
   },
-  "dependencies": {
-    "pixi.js": "8.20.1",
-    "three": "0.187.0"
+  "peerDependencies": {
+    "pixi.js": "^8.20.1",
+    "three": "~0.187.0"
   },
   "devDependencies": {
     "@types/bun": "^1.4.4",
     "@types/three": "^0.187.0",
+    "pixi.js": "8.20.1",
+    "three": "0.187.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.7"
   }

@@ -1,36 +1,55 @@
 # Duolume
 
-Daniel's visuals engine (package `duolume`, repository `web-visualizer-manager`): a small animation engine that runs **PixiJS and Three.js as one
-scene**, where effects drawn by either renderer can affect each other — and where writing a
-new effect is meant to be laughably intuitive.
+A small framework for animated scenes on the web. It runs **PixiJS and Three.js as one picture**,
+built from effects that react to each other and to the page, and writing a new effect is meant to
+be laughably intuitive: one small class, four methods.
+
+**Documentation, a nine-lesson tutorial with live editable demos, and every built-in effect running:
+[duolume.danielsite.com](https://duolume.danielsite.com)**
 
 | | |
 | --- | --- |
-| Status | 0.1.0, a preview: the API can still change between versions |
-| Install | not on npm yet; TypeScript source, added from this repository (see the package note below) |
-| Needs | `pixi.js` 8.20.1, `three` 0.187.0, and a bundler that compiles TypeScript (Vite) |
-| Docs | the `engine-docs` site: a tutorial of nine live, editable lessons, an API reference and examples |
+| Status | 0.1.0, still in development: the API can change between versions |
+| Install | `npm install duolume pixi.js three` |
+| Needs | `pixi.js` ^8.20.1 and `three` ~0.187.0 (peer dependencies), and a bundler such as Vite |
+| TypeScript | types are included; use `"moduleResolution": "bundler"` |
 | License | MIT |
 
-It is a rebuild of the original canvas engine (`E:\Desktop\Coding\VisualizerEngine\Original`,
-Oct–Nov 2025) and keeps its contract: a `VisualsManager` runs named `Effect` classes through
-`initialize`, `onTick`, `onRender` and `cleanup`; every `onTick` returns a context that other
-effects can read; particles are motion objects in pixels and milliseconds. The names are the
-same on purpose.
+```ts
+import { VisualsManager } from 'duolume';
+import { Rain, RainEater, Wind } from 'duolume/effects';
+
+const canvas = document.querySelector<HTMLCanvasElement>('#stage')!;
+const manager = await VisualsManager.create(canvas);
+manager.addEffect(new Wind()).addEffect(new RainEater()).addEffect(new Rain());
+manager.run();
+```
+
+Duolume is a rebuild of an earlier 2D canvas engine (October to November 2025) and keeps its
+contract: a `VisualsManager` runs named `Effect` classes through `initialize`, `onTick`, `onRender`
+and `cleanup`; every `onTick` returns a context that other effects can read; particles are motion
+objects in pixels and milliseconds. The names are the same on purpose.
+
+## The package
+
+| Import | What it is |
+| --- | --- |
+| `duolume` | The engine: `VisualsManager`, `Effect`, `Particle`, `ParticleSet`, types and helpers |
+| `duolume/effects` | The effect library: `Rain`, `RainEater`, `Crystals`, `Wind` and the rest, with their options |
+| `duolume/effects/<Folder>/<File>` | Any file of the library by path, e.g. the building block `Crystal/CrystalBody` |
+| `duolume/types` | Only for typing your own effects: the registries are augmented here |
+
+npm ships JavaScript and type declarations built from this repository (`bun run build:lib`
+writes them to `lib/`). The two renderers are peer dependencies, so a page has one copy of each.
 
 ```
-src/       the engine                                   import from 'duolume'
-effects/   the library of effects (one folder each),    import from 'duolume/effects'
+src/       the engine                                   'duolume'
+effects/   the library of effects (one folder each),    'duolume/effects'
            index.ts, and contracts.ts
 tests/     unit tests for the renderer-free parts
 lab/       a page that runs every effect, with controls
+scripts/   build-lib.ts, which builds what npm ships
 ```
-
-The package is TypeScript source, not a build: `package.json` exports `src/index.ts` as
-`duolume`, `src/types.ts` as `duolume/types`, `effects/index.ts` as `duolume/effects`, and any
-effect file by path (`duolume/effects/Crystal/CrystalBody`). A bundler such as Vite compiles it
-with the page. It is not published; a project adds it as a local dependency
-(`bun add ../web-visualizer-manager`) or carries a copy.
 
 ## Writing an effect
 
@@ -80,7 +99,7 @@ Three.js, with both, or with neither.
 **Keep it that way.** No registries, plugin systems, config frameworks or wrapper layers on
 top; no effect importing another effect's code; no simulation in `onRender`; no renaming the
 vocabulary. If something seems to need more than a small effect class, that is a question
-for Daniel, not a reason to build machinery.
+to raise in an issue first, not a reason to build machinery.
 
 ## The idea
 
@@ -230,17 +249,16 @@ bun install
 bun run dev         # the lab at http://127.0.0.1:3031/lab/
 bun run typecheck
 bun test tests
-bun run build
+bun run build       # the lab, as a static site
+bun run build:lib   # what npm ships: JavaScript and type declarations in lib/
 ```
 
-## Where else this code lives
+## Carrying a copy
 
-teroshed.work carries a copy of this engine in its own repository (`teroshed/teroshed-work`,
-folders `engine/src`, `engine/effects`, `engine/tests`, plus `lab/`), because its Cloudflare
-build needs a self-contained repository. This repository is where the engine is meant to be
-changed; the site's copy is brought up to date by copying `src/`, `effects/` and `tests/` over
-its `engine/` folder. The lab differs only in its import paths (`../src` here,
-`../engine/src` there).
+A site that must build from its own repository alone can carry a copy of `src/` and `effects/`
+instead of installing the package, and point the same import names at it with path aliases. The
+documentation site and teroshed.work both do. This repository is where the engine is changed;
+copies are brought up to date by copying the two folders over.
 
 ## Limits
 
@@ -253,8 +271,7 @@ its `engine/` folder. The lab differs only in its import paths (`../src` here,
 - After a lost WebGL context the engine stops drawing until the browser restores it; it does
   not rebuild resources itself beyond what Pixi and Three.js do.
 - One manager per canvas, and a canvas is not reused after `cleanup()`.
-- Checked in desktop Chrome with the simulation stepped by hand. Not yet watched running in
-  real time, and not yet run on a phone.
+- Checked in desktop Chrome. Not yet run on a real phone, and frame cost on phones is not measured.
 
-Pinned: `pixi.js` 8.20.1, `three` 0.187.0. `pixi.js/unsafe-eval` is loaded so the engine works
+Developed and tested against `pixi.js` 8.20.1 and `three` 0.187.0. `pixi.js/unsafe-eval` is loaded so the engine works
 under a `script-src 'self'` content security policy.

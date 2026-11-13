@@ -4,15 +4,17 @@
   "workspaces": {
     "": {
       "name": "web-visualizer-manager",
-      "dependencies": {
-        "pixi.js": "8.20.1",
-        "three": "0.187.0",
-      },
       "devDependencies": {
         "@types/bun": "^1.4.4",
         "@types/three": "^0.187.0",
+        "pixi.js": "8.20.1",
+        "three": "0.187.0",
         "typescript": "^7.0.2",
         "vite": "^8.3.7",
+      },
+      "peerDependencies": {
+        "pixi.js": "^8.20.1",
+        "three": "~0.187.0",
       },
     },
   },
