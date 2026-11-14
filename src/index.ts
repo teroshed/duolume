@@ -8,6 +8,7 @@ export { Stage, type AnchorRect } from './Stage';
 export { Compositor, type CompositorOptions, type Surfaces } from './Compositor';
 export { InputState, normalizeKey } from './Input';
 export { attachPageRipples, type PageRipplesOptions } from './dom/PageRipples';
+export { attachFieldTags, type FieldTagsOptions } from './dom/FieldTags';
 export { GradientType, gradientAtPosition } from './Gradients';
 export { randomNumber, distanceV2, clamp, lerp, smoothstep, approach, mixColor, rgbToHex } from './math';
 export type {

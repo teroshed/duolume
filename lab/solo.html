@@ -56,11 +56,116 @@
         color: inherit;
         pointer-events: auto;
       }
+      /* Sample inputs for effects that draw inside page elements (?fields=…). Each is a window onto the stage. */
+      #fields {
+        position: absolute;
+        left: 12px;
+        right: 12px;
+        top: 40px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px 22px;
+        align-items: center;
+        font-size: 12px;
+        color: #a9b4c2;
+      }
+      #fields .cell {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      #fields .name {
+        min-width: 74px;
+      }
+      #fields .sw {
+        position: relative;
+        display: inline-flex;
+        cursor: pointer;
+      }
+      #fields .sw input {
+        position: absolute;
+        inset: 0;
+        margin: 0;
+        opacity: 0;
+        cursor: pointer;
+      }
+      #fields .track {
+        position: relative;
+        width: 60px;
+        height: 28px;
+        border: 1px solid rgba(190, 210, 235, 0.3);
+        border-radius: 14px;
+      }
+      #fields .knob {
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #5d6875;
+        transition: transform 0.16s ease, background 0.16s ease;
+      }
+      #fields .sw input:checked + .track {
+        border-color: #7fe7dc;
+      }
+      #fields .sw input:checked + .track .knob {
+        transform: translateX(32px);
+        background: #7fe7dc;
+      }
+      #fields .sw input:focus-visible + .track,
+      #fields .tf:focus-visible,
+      #fields .bt:focus-visible,
+      #fields .bar:focus-within {
+        outline: 2px solid #7fe7dc;
+        outline-offset: 2px;
+      }
+      #fields .tf,
+      #fields .bt {
+        height: 38px;
+        border: 1px solid rgba(190, 210, 235, 0.3);
+        border-radius: 10px;
+        background: transparent;
+        color: #eaf0f6;
+        font: inherit;
+        font-size: 13px;
+      }
+      #fields .tf {
+        width: 190px;
+        padding: 0 12px;
+      }
+      #fields .bt {
+        width: 110px;
+        cursor: pointer;
+      }
+      #fields .bar {
+        position: relative;
+        width: 180px;
+        height: 18px;
+        border: 1px solid rgba(190, 210, 235, 0.3);
+        border-radius: 9px;
+      }
+      #fields .bar input {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        opacity: 0;
+        cursor: pointer;
+      }
+      #fields .pad {
+        width: 220px;
+        height: 96px;
+        border: 1px solid rgba(190, 210, 235, 0.3);
+        border-radius: 14px;
+      }
     </style>
   </head>
   <body>
     <canvas id="stage" aria-hidden="true"></canvas>
     <p id="label"></p>
+    <div id="fields" hidden></div>
     <div class="shelf shelf-a" data-fx-anchor="shelf-a" data-fx-tags="ledge">a DOM element</div>
     <div class="shelf shelf-b" data-fx-anchor="shelf-b" data-fx-tags="ledge">another one</div>
     <script type="module" src="./solo.ts"></script>
