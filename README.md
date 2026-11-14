@@ -196,7 +196,9 @@ Every `Particle` has a `priority` from 1 to 10, set at birth, and a life cycle
 (never simulation time) and turns that into a budget between 0 and 1. A `ParticleSet` over its
 allowance asks the lowest-priority particles in the most crowded part of the stage to leave;
 they play their exit animation. Only below 12.5 frames per second on average are particles
-removed outright. Births and exits per tick are capped, and recovery is slow.
+removed outright. Births and exits per tick are capped, and recovery is slow. The first second
+of frames is not measured (`warmupMs`): a page compiles its shaders then, and that is not the
+machine being slow.
 
 Using a `ParticleSet`: call `govern(tick)` at the start of every tick, spawn while
 `canSpawn()`, and `sweep(tick)` at the end. Without `govern`, nothing ever spawns.
