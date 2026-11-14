@@ -336,6 +336,48 @@ describe('governor', () => {
         expect(calm.budget).toBe(1);
     });
 
+    test('does not read a page starting up as a slow machine', () => {
+        // What a fast machine does on load: a few long frames while shaders compile, then a steady 60.
+        const startUp = [16.7, 470, 120, 16.7, 210, 16.7];
+        const governor = new PopulationGovernor();
+        for (const frame of startUp) {
+            governor.sample(frame);
+        }
+        for (let i = 0; i < 300; i++) {
+            governor.sample(16.7);
+        }
+        expect(governor.budget).toBe(1);
+        expect(governor.averageFps).toBeGreaterThan(55);
+
+        // Measured from the first frame, the same start costs budget: this is what the warm-up is for.
+        const eager = new PopulationGovernor({ warmupMs: 0 });
+        for (const frame of startUp) {
+            eager.sample(frame);
+        }
+        expect(eager.budget).toBeLessThan(1);
+    });
+
+    test('still shrinks when the machine really is slow from the start, and warms up again after a gap', () => {
+        const slow = new PopulationGovernor();
+        for (let i = 0; i < 80; i++) {
+            slow.sample(50); // 20 fps for four seconds: one second of warm-up, three measured
+        }
+        expect(slow.budget).toBeLessThan(0.8);
+
+        const back = new PopulationGovernor();
+        for (let i = 0; i < 120; i++) {
+            back.sample(16.7);
+        }
+        back.sample(30000); // the tab was hidden
+        for (const frame of [300, 200, 250]) {
+            back.sample(frame); // and stumbles as it comes back
+        }
+        for (let i = 0; i < 120; i++) {
+            back.sample(16.7);
+        }
+        expect(back.budget).toBe(1);
+    });
+
     test('asks the least important particles in the most crowded cell to leave first, with an exit', () => {
         const budget = { budget: 1, averageFps: 60, emergency: false };
         const sim = simulation(budget);

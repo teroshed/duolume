@@ -12,6 +12,12 @@ export interface GovernorOptions {
     initialBudget?: number;
     windowMs?: number;
     recoverAfterMs?: number;
+    /**
+     * Real milliseconds at the start, and again after a long gap, that are not measured. A page
+     * compiles its shaders and loads its code during its first frames; those stalls say nothing
+     * about how fast the machine is. Default 1000. 0 measures from the first frame.
+     */
+    warmupMs?: number;
 }
 
 /**
@@ -20,6 +26,10 @@ export interface GovernorOptions {
  * It never derives FPS from simulation time: a slow frame is clamped for the simulation,
  * and reading the clamped value would hide the stall this exists to detect.
  * Shrinking is quick, recovery is slow and only after sustained headroom.
+ *
+ * The first second of frames is left out. A page starting up stalls for a few hundred
+ * milliseconds while shaders compile; counted, that one window read as 6 to 10 frames per second
+ * and took a fifth off the budget of the fastest machine for the next ten seconds.
  */
 export class PopulationGovernor implements BudgetState {
     public budget: number;
@@ -32,11 +42,14 @@ export class PopulationGovernor implements BudgetState {
     private readonly minBudget: number;
     private readonly windowMs: number;
     private readonly recoverAfterMs: number;
+    private readonly warmupMs: number;
 
     private frames = 0;
     private elapsed = 0;
     private headroomMs = 0;
     private observedMs = 0;
+    /** Real milliseconds still to let pass before measuring. */
+    private warmupLeft: number;
 
     public constructor(options: GovernorOptions = {}) {
         this.lowFps = options.lowFps ?? 44;
@@ -46,6 +59,8 @@ export class PopulationGovernor implements BudgetState {
         this.budget = options.initialBudget ?? 1;
         this.windowMs = options.windowMs ?? 500;
         this.recoverAfterMs = options.recoverAfterMs ?? 3000;
+        this.warmupMs = Math.max(0, options.warmupMs ?? 1000);
+        this.warmupLeft = this.warmupMs;
     }
 
     /** Call once per rendered frame with the real milliseconds since the previous one. */
@@ -54,6 +69,12 @@ export class PopulationGovernor implements BudgetState {
         if (realDeltaMs > 1000 || realDeltaMs <= 0) {
             this.frames = 0;
             this.elapsed = 0;
+            // Coming back is a start of its own: the first frames after it are not to be trusted either.
+            this.warmupLeft = this.warmupMs;
+            return;
+        }
+        if (this.warmupLeft > 0) {
+            this.warmupLeft -= realDeltaMs;
             return;
         }
         this.frames += 1;
