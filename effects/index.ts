@@ -8,17 +8,22 @@
  */
 export { AuroraRibbons, type AuroraRibbonsOptions } from './AuroraRibbons/AuroraRibbons';
 export { BlankEffect } from './Blank/BlankEffect';
+export { Bubbles, type BubblesOptions } from './Bubbles/Bubbles';
 export { ClickExplosion, type ClickExplosionOptions } from './ClickExplosions/ClickExplosion';
 export { Confetti, type ConfettiOptions } from './Confetti/Confetti';
 export { Constellation, type ConstellationOptions } from './Constellation/Constellation';
 export { Crystals, type CrystalsOptions } from './Crystals/Crystals';
 export { Fireflies, type FirefliesOptions } from './Fireflies/Fireflies';
 export { FireworksEffect, type FireworksOptions } from './Fireworks/FireworksEffect';
+export { Flock, type FlockOptions } from './Flock/Flock';
 export { LightningStorm, type LightningStormOptions } from './LightningStorm/LightningStorm';
 export { Meadow, type MeadowOptions } from './Meadow/Meadow';
 export { Meteors, type MeteorsOptions } from './Meteors/Meteors';
+export { Nebula, type NebulaOptions } from './Nebula/Nebula';
 export { Rain, type RainOptions } from './Rain/Rain';
 export { RainEater, type RainEaterOptions } from './RainEater/RainEater';
+export { Serpent, type SerpentOptions } from './Serpent/Serpent';
+export { Singularity, type SingularityOptions } from './Singularity/Singularity';
 export { Snow, type SnowOptions } from './Snow/Snow';
 export { Tide, type TideOptions } from './Tide/Tide';
 export { Wind, type WindOptions } from './Wind/Wind';
