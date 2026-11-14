@@ -155,6 +155,13 @@ export class RainEater extends Effect<RainEaterContext> {
                 this.pulse = 1;
             }
         }
+        // So is a meteor: one that comes down on the head reports its impact there.
+        for (const event of tickContext.events('meteor:impact')) {
+            if (!this.exploded && distanceV2(head.position, event.payload) < this.radius + 24) {
+                this.energy += RainEater.ENERGY_PER_STRIKE * (0.5 + event.payload.power);
+                this.pulse = 1;
+            }
+        }
         this.energy = clamp(this.energy - RainEater.ENERGY_LEAK * dt, 0, 1);
         this.pulse = approach(this.pulse, 0, 6, dt);
 

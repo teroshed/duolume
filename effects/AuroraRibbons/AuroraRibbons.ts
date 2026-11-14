@@ -34,8 +34,9 @@ export interface AuroraRibbonsOptions {
  * Light, wavy ribbons drifting across the sky, drawn with one Pixi rope mesh per ribbon.
  *
  * What it listens to:
- *   - `lightning:strike`, `firework:exploded`, `rainEater:exploded` events: each sends a pulse
- *     rippling along every ribbon from where it happened.
+ *   - `lightning:strike`, `firework:exploded`, `rainEater:exploded`, `meteor:impact` and
+ *     `singularity:collapsed` events: each sends a pulse rippling along every ribbon from where
+ *     it happened.
  *   - the force field: wind and shock rings push the ribbons along.
  *   - `rainEater` (a Three.js effect): the ribbons brighten as it fills up.
  * Keys: `w` adds a ribbon, `s` removes one. A click pulses at the mouse.
@@ -143,6 +144,12 @@ export class AuroraRibbons extends Effect<AuroraRibbonsContext> {
             this.pulseAll(e.payload.x, e.payload.y, 0.4 + 0.6 * e.payload.power);
         }
         for (const e of tick.events('rainEater:exploded')) {
+            this.pulseAll(e.payload.x, e.payload.y, 1.5);
+        }
+        for (const e of tick.events('meteor:impact')) {
+            this.pulseAll(e.payload.x, e.payload.y, 0.5 + 0.7 * e.payload.power);
+        }
+        for (const e of tick.events('singularity:collapsed')) {
             this.pulseAll(e.payload.x, e.payload.y, 1.5);
         }
 
