@@ -16,8 +16,8 @@
         <a class="back" href="https://teroshed.work/">← teroshed.work</a>
         <h1>Engine lab</h1>
         <p>
-          Eight effects, two renderers, one simulation. Rain, ribbons and lightning are PixiJS. The crystals,
-          the sparks and the firework bursts are Three.js. None of them knows the others exist.
+          Twenty effects, two renderers, one simulation. Rain, grass, snow and the sea are PixiJS. The crystals,
+          the bubbles, the black hole and the serpent are Three.js. None of them knows the others exist.
         </p>
       </header>
 
@@ -28,8 +28,21 @@
             <button id="about" type="button" class="quiet">About</button>
           </div>
           <input id="level" class="level-slider" type="range" min="0" max="4" step="1" value="1" aria-describedby="level-help" />
-          <p id="level-help" class="sr-only">Five steps from Minimal to Max. Sets which effects run and how bright they flash.</p>
+          <p id="level-help" class="sr-only">Five steps from Minimal to Max. Sets how bright the scene flashes, and in the Storm scene which effects run.</p>
         </div>
+
+        <label class="inline">
+          <span>Scene</span>
+          <select id="scene">
+            <option value="storm">Storm</option>
+            <option value="meadow">Night meadow</option>
+            <option value="winter">Winter</option>
+            <option value="sea">Rising tide</option>
+            <option value="party">Celebration</option>
+            <option value="space">Deep space</option>
+            <option value="everything">Everything</option>
+          </select>
+        </label>
 
         <fieldset class="effects">
           <legend>Effects</legend>
@@ -41,6 +54,22 @@
           <label><input type="checkbox" data-effect="rainEater" checked /> Rain eater <kbd>6</kbd></label>
           <label><input type="checkbox" data-effect="wind" checked /> Wind <kbd>7</kbd></label>
           <label><input type="checkbox" data-effect="crystals" checked /> Crystals <kbd>8</kbd></label>
+        </fieldset>
+
+        <fieldset class="effects more">
+          <legend>More effects</legend>
+          <label><input type="checkbox" data-effect="nebula" /> Nebula</label>
+          <label><input type="checkbox" data-effect="constellation" /> Constellation</label>
+          <label><input type="checkbox" data-effect="tide" /> Tide</label>
+          <label><input type="checkbox" data-effect="meadow" /> Meadow</label>
+          <label><input type="checkbox" data-effect="singularity" /> Black hole</label>
+          <label><input type="checkbox" data-effect="serpent" /> Serpent</label>
+          <label><input type="checkbox" data-effect="bubbles" /> Bubbles</label>
+          <label><input type="checkbox" data-effect="snow" /> Snow</label>
+          <label><input type="checkbox" data-effect="meteors" /> Meteors</label>
+          <label><input type="checkbox" data-effect="flock" /> Flock</label>
+          <label><input type="checkbox" data-effect="fireflies" /> Fireflies</label>
+          <label><input type="checkbox" data-effect="confetti" /> Confetti</label>
         </fieldset>
 
         <div class="pair">
@@ -70,19 +99,22 @@
           <button id="motion" type="button" aria-pressed="false">Pause</button>
         </div>
 
-        <dl class="readout" aria-live="off">
-          <div><dt>Frames / s</dt><dd id="r-fps">–</dd></div>
-          <div><dt>Budget</dt><dd id="r-budget">–</dd></div>
-          <div><dt>Droplets</dt><dd id="r-drops">–</dd></div>
-          <div><dt>Eater charge</dt><dd id="r-energy">–</dd></div>
-          <div><dt>Sparks</dt><dd id="r-sparks">–</dd></div>
-          <div><dt>Shells</dt><dd id="r-shells">–</dd></div>
-          <div><dt>Charge points</dt><dd id="r-charge">–</dd></div>
-          <div><dt>Ribbons</dt><dd id="r-ribbons">–</dd></div>
-          <div><dt>Wind</dt><dd id="r-wind">–</dd></div>
-        </dl>
+        <details class="fold">
+          <summary>Readout</summary>
+          <dl class="readout" aria-live="off">
+            <div><dt>Frames / s</dt><dd id="r-fps">–</dd></div>
+            <div><dt>Budget</dt><dd id="r-budget">–</dd></div>
+            <div><dt>Droplets</dt><dd id="r-drops">–</dd></div>
+            <div><dt>Eater charge</dt><dd id="r-energy">–</dd></div>
+            <div><dt>Sparks</dt><dd id="r-sparks">–</dd></div>
+            <div><dt>Shells</dt><dd id="r-shells">–</dd></div>
+            <div><dt>Charge points</dt><dd id="r-charge">–</dd></div>
+            <div><dt>Ribbons</dt><dd id="r-ribbons">–</dd></div>
+            <div><dt>Wind</dt><dd id="r-wind">–</dd></div>
+          </dl>
+        </details>
 
-        <details class="keys">
+        <details class="fold keys">
           <summary>Keyboard</summary>
           <ul>
             <li><kbd>1</kbd>–<kbd>8</kbd> switch an effect on or off</li>
@@ -91,11 +123,15 @@
             <li><kbd>E</kbd> build charge</li>
             <li><kbd>W</kbd><kbd>S</kbd> add or remove a ribbon</li>
             <li><kbd>←</kbd><kbd>→</kbd> blow the wind</li>
+            <li><kbd>C</kbd> fire the confetti cannons</li>
+            <li><kbd>M</kbd> send a meteor to the pointer</li>
+            <li><kbd>B</kbd> blow bubbles from the pointer</li>
+            <li><kbd>G</kbd> move the black hole to the pointer</li>
           </ul>
         </details>
       </section>
 
-      <p class="hint">Click anywhere for a shock ring. Click a crystal to break it: half its shards catch on the panel and shelves.</p>
+      <p class="hint">Click anywhere for a shock ring. Click a crystal to break it: half its shards catch on the panel and shelves. Try a scene for a different set of effects.</p>
 
       <div class="shelf shelf-a" data-fx-anchor="shelf-a" data-fx-tags="ledge">a DOM element</div>
       <div class="shelf shelf-b" data-fx-anchor="shelf-b" data-fx-tags="ledge">another one</div>

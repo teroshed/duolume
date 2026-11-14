@@ -1,5 +1,5 @@
 import type { LabActions } from './actions';
-import { INTENSITY_LEVELS, INTENSITY_PRESETS, type IntensityLevel } from './intensity';
+import { INTENSITY_LEVELS, INTENSITY_PRESETS, SCENE_PRESETS, type IntensityLevel } from './intensity';
 
 const CLOSE_MS = 240;
 
@@ -30,7 +30,10 @@ export function initIntro(actions: LabActions, fallbackFocus: HTMLElement): { op
         slider.setAttribute('aria-valuetext', preset.label);
         slider.style.setProperty('--fill', `${(index / (INTENSITY_LEVELS.length - 1)) * 100}%`);
         name.textContent = preset.label;
-        summary.textContent = preset.summary;
+        // Level summaries describe the Storm scene's effects; elsewhere the level only sets brightness.
+        summary.textContent = state.scene === 'storm'
+            ? preset.summary
+            : `${SCENE_PRESETS[state.scene].label}: the scene chooses the effects, the level sets how much rain and how bright the flashes are.`;
         skip.checked = state.skipIntro;
         dialog.dataset.level = state.level;
         for (const step of steps) {

@@ -4,15 +4,21 @@ import type { RainEater } from '../effects/RainEater/RainEater';
 import { GradientType, type VisualsManager } from '../src';
 import {
     DEFAULT_LEVEL,
+    DEFAULT_SCENE,
     EFFECT_NAMES,
     INTENSITY_PRESETS,
+    SCENE_PRESETS,
     isEffectName,
     isIntensityLevel,
+    isSceneName,
     type EffectName,
     type IntensityLevel,
+    type SceneName,
 } from './intensity';
 
 export interface LabState {
+    /** Which set of effects belongs together. In `storm` the level chooses the effects. */
+    scene: SceneName;
     level: IntensityLevel;
     effects: Record<EffectName, boolean>;
     /** Simulation speed, 0.2 to 3. */
@@ -32,8 +38,13 @@ export interface LabState {
  */
 export interface LabActions {
     getState(): Readonly<LabState>;
-    /** Apply one of the five intensity levels: which effects run, how much rain, how bright. */
+    /**
+     * Apply one of the five intensity levels: how much rain, how many shells, how bright. In the
+     * `storm` scene it also chooses which effects run; in any other scene the switches stay as they are.
+     */
     setLevel(level: IntensityLevel): void;
+    /** Switch to a scene and run its effects (for `storm`: the current level's). */
+    setScene(scene: SceneName): void;
     setEffectEnabled(effect: EffectName, enabled: boolean): void;
     toggleEffect(effect: EffectName): boolean;
     setSpeed(speed: number): number;
@@ -56,17 +67,19 @@ const STORAGE_KEY = 'teroshed.lab.v1';
 const GRADIENTS = Object.values(GradientType) as string[];
 
 /** The saved subset of the state. Pausing is not saved: a lab that opens frozen looks broken. */
-type SavedState = Pick<LabState, 'level' | 'effects' | 'speed' | 'drops' | 'gradient' | 'skipIntro'>;
+type SavedState = Pick<LabState, 'scene' | 'level' | 'effects' | 'speed' | 'drops' | 'gradient' | 'skipIntro'>;
 
 export function createLabActions(manager: VisualsManager, effects: LabEffects, reducedMotion: boolean): LabActions {
     const listeners = new Set<(state: Readonly<LabState>) => void>();
     const saved = load();
     const level = saved?.level ?? DEFAULT_LEVEL;
+    const scene = saved?.scene ?? DEFAULT_SCENE;
     const preset = INTENSITY_PRESETS[level];
 
     const state: LabState = {
+        scene,
         level,
-        effects: { ...preset.effects, ...saved?.effects },
+        effects: { ...sceneEffects(scene, level), ...saved?.effects },
         speed: saved?.speed ?? 1,
         drops: saved?.drops ?? preset.drops,
         gradient: saved?.gradient ?? GradientType.THEME,
@@ -81,6 +94,12 @@ export function createLabActions(manager: VisualsManager, effects: LabEffects, r
         }
     };
 
+    const applyEffectsToEngine = (): void => {
+        for (const name of EFFECT_NAMES) {
+            manager.setEffectEnabled(name, state.effects[name]);
+        }
+    };
+
     const applyLevelToEngine = (): void => {
         const current = INTENSITY_PRESETS[state.level];
         manager.setComfort(current.comfort);
@@ -89,9 +108,7 @@ export function createLabActions(manager: VisualsManager, effects: LabEffects, r
 
     // Bring the engine in line with the restored state once, before anything is shown.
     applyLevelToEngine();
-    for (const name of EFFECT_NAMES) {
-        manager.setEffectEnabled(name, state.effects[name]);
-    }
+    applyEffectsToEngine();
     manager.setTimeScale(state.speed);
     state.speed = manager.getTimeScale();
     effects.rain.setDropTarget(state.drops);
@@ -106,13 +123,23 @@ export function createLabActions(manager: VisualsManager, effects: LabEffects, r
             }
             const target = INTENSITY_PRESETS[next];
             state.level = next;
-            state.effects = { ...target.effects };
             state.drops = target.drops;
-            for (const name of EFFECT_NAMES) {
-                manager.setEffectEnabled(name, state.effects[name]);
+            if (state.scene === 'storm') {
+                state.effects = { ...target.effects };
+                applyEffectsToEngine();
             }
             effects.rain.setDropTarget(state.drops);
             applyLevelToEngine();
+            changed();
+        },
+
+        setScene(next) {
+            if (!isSceneName(next)) {
+                throw new RangeError(`Unknown scene: ${String(next)}`);
+            }
+            state.scene = next;
+            state.effects = sceneEffects(next, state.level);
+            applyEffectsToEngine();
             changed();
         },
 
@@ -191,6 +218,11 @@ export function createLabActions(manager: VisualsManager, effects: LabEffects, r
     };
 }
 
+/** The effect switches a scene starts with: its own set, or for `storm` the level's. */
+function sceneEffects(scene: SceneName, level: IntensityLevel): Record<EffectName, boolean> {
+    return { ...(SCENE_PRESETS[scene].effects ?? INTENSITY_PRESETS[level].effects) };
+}
+
 function load(): Partial<SavedState> | undefined {
     try {
         const raw = window.localStorage.getItem(STORAGE_KEY);
@@ -203,6 +235,9 @@ function load(): Partial<SavedState> | undefined {
         }
         const data = parsed as Record<string, unknown>;
         const result: Partial<SavedState> = {};
+        if (isSceneName(data.scene)) {
+            result.scene = data.scene;
+        }
         if (isIntensityLevel(data.level)) {
             result.level = data.level;
         }
@@ -243,6 +278,7 @@ function load(): Partial<SavedState> | undefined {
 
 function save(state: LabState): void {
     const data: SavedState = {
+        scene: state.scene,
         level: state.level,
         effects: state.effects,
         speed: state.speed,
