@@ -47,13 +47,16 @@ src/       the engine                                   'duolume'
 effects/   the library of effects (one folder each),    'duolume/effects'
            index.ts, and contracts.ts
 tests/     unit tests for the renderer-free parts
-lab/       a page that runs every effect, with controls
-scripts/   build-lib.ts, which builds what npm ships
+lab/       a page that runs every effect, with controls (index.html),
+           and one that runs chosen effects alone (solo.html)
+scripts/   build-lib.ts, which builds what npm ships; solo-shot.mjs, which photographs solo.html
+AGENTS.md  how to work in this repository, and the checklist for adding an effect
 ```
 
 ## Writing an effect
 
-Copy `effects/Blank/`, rename the class and `effectName`, fill in four methods:
+Copy `effects/Blank/`, rename the class and `effectName`, fill in four methods. (A library effect
+also has to be listed in a few places by hand; `AGENTS.md` has the checklist.)
 
 ```ts
 import { Effect } from 'duolume';
@@ -120,7 +123,7 @@ get eaten through the same mechanism as before.
 | **Contexts** | The return value of `onTick`. `tick.previousEffectsContext` fills up as effects run this tick; `tick.previousTickContext` is the full map from the tick before. `tick.read(name)` gives the freshest of the two. | Ordered, as in the original: a later effect sees an earlier effect's result in the same tick. |
 | **Forces** | `tick.forces.add({ kind: 'attract' \| 'repel' \| 'vortex' \| 'wind', … })` and `tick.forces.sample(x, y, out)`. Shock rings (`tick.forces.shock(…)`) are added once and expand on their own. | Sampled from the previous tick's complete set, so the result does not depend on run order. |
 | **Events** | `tick.emit(type, payload)` / `tick.events(type)` for one-shot things ("I just exploded"). | Everything emitted in a tick is delivered as one batch on the next tick. |
-| **Pixels** | The Pixi layer is uploaded as a texture each frame. A Three.js material can sample it through `host.surfaces` (the crystal refracts the rain behind it). Shock rings bend the whole composited picture. | Same frame. |
+| **Pixels** | The Pixi layer is uploaded as a texture each frame. A Three.js material can sample it through `host.surfaces` (the crystal, the bubbles and the singularity's lens show the rain behind them bent). Shock rings bend the whole composited picture. | Same frame. |
 
 Contexts keep the original's ordered semantics. Events are an addition and are deliberately
 batched; the two are different on purpose, not one replacing the other.
@@ -219,19 +222,35 @@ frame and is the arrangement both libraries support without patching.
 ## The effect library
 
 Every library effect takes an optional options object: `new Rain({ dropCount: 300 })`,
-`new FireworksEffect({ shells: 4 })`. With none it runs as authored; the defaults are the
-effect's static constants. (`BlankEffect`, the template, has none.)
+`new FireworksEffect({ shells: 4 })`, `new Tide({ level: 90 })`, `new Fireflies({ coupling: 0.2 })`.
+With none it runs as authored; the defaults are the effect's static constants. (`BlankEffect`,
+the template, has none.) Every effect works alone; some show more with a neighbour: `Tide` and
+`Nebula` with `Rain`, `Meadow` and `Snow` with `Wind`, `Singularity` with `Rain` to feed on.
+Keys are named in the comment above each effect's class, and `AGENTS.md` keeps the table of which
+key belongs to which effect.
 
 | Effect | Drawn with | Listens to | Tells the others |
 | --- | --- | --- | --- |
 | `Rain` | Pixi | `rainEater` context (gets eaten), the force field, DOM ledges (stopped by them, pools on them, drips off them) | `rain:eaten`, `rain:landed`, `page:hit` |
-| `RainEater` | Three.js (glass crystal that refracts the Pixi layer) | `rain:eaten` and `lightning:strike` charge it; the force field shoves it; DOM ledges stop its shards | its head position, an attraction force, `rainEater:exploded` and a shock ring, `page:hit` |
-| `Crystals` | Three.js | clicks; `rainEater:exploded` nearby (chain reaction); `lightning:strike` nearby; the force field; DOM ledges stop its shards | `crystal:exploded`, a shock ring, `page:hit` |
-| `ClickExplosion` | Three.js points | presses, `rainEater:exploded`, `crystal:exploded`, `lightning:strike`, the force field | a shock ring per press |
+| `RainEater` | Three.js (glass crystal that refracts the Pixi layer) | `rain:eaten` charges it, and so do `lightning:strike` and `meteor:impact` that land on its head; the force field shoves it; DOM ledges stop its shards | its head position, an attraction force, `rainEater:exploded` and a shock ring, `page:hit` |
+| `Crystals` | Three.js | clicks; `rainEater:exploded` nearby (chain reaction); `lightning:strike`, `meteor:impact` and `singularity:collapsed` nearby; the force field; DOM ledges stop its shards | `crystal:exploded`, a shock ring, `page:hit` |
+| `ClickExplosion` | Three.js points | presses, `rainEater:exploded`, `crystal:exploded`, `lightning:strike`, `meteor:impact`, `singularity:collapsed`, the force field | a shock ring per press |
 | `LightningStorm` | Pixi | `rain:landed` builds charge where rain lands; strikes the rain eater when it is in range | `lightning:strike`, a shock ring, a flash over the backdrop |
 | `FireworksEffect` | Pixi (stems, trails) and Three.js (bursts) | the force field bends stems and bursts; the rain eater sets off stems that come close | `firework:exploded`, a shock ring, a flash |
-| `AuroraRibbons` | Pixi | ripples on presses, `lightning:strike`, `firework:exploded`, `rainEater:exploded`; the force field carries it; brightens with the eater's charge | — |
+| `AuroraRibbons` | Pixi | ripples on presses, `lightning:strike`, `firework:exploded`, `rainEater:exploded`, `meteor:impact`, `singularity:collapsed`; the force field carries it; brightens with the eater's charge | — |
 | `Wind` | nothing | arrow keys | one stage-wide wind force |
+| `Meteors` | Pixi | the force field bends their path a little; the `wind` context (they tend to travel the way it blows); the `rainEater` and `singularity` contexts (a meteor that enters one lands there); DOM ledges (landed on) | `meteor:impact`, `page:hit`, a flash and a shock ring for the big ones |
+| `Singularity` | Three.js (a lens that bends the backdrop and the Pixi layer round a dark disc) | the `rain` context (droplets fall in), `rainEater:exploded`, `crystal:exploded`, `meteor:impact`, `firework:exploded`, `lightning:strike` and `bubble:popped` feed it; presses on it; the force field nudges it | its position, radius and mass; an attraction and a vortex force; `singularity:collapsed`, a shock ring and a flash when it collapses |
+| `Nebula` | Three.js (one shader quad that only adds light) | the `rain` context thickens it; the force field carries it; `lightning:strike`, `firework:exploded`, `meteor:impact`, `crystal:exploded`, `rainEater:exploded`, `singularity:collapsed` and `fireflies:synced` light it from inside; the pointer | its density and how many lights glow in it |
+| `Snow` | Pixi | the force field (wind slants the flakes and shaves the piles); DOM ledges (piles settle on them); the pointer wipes piles; `crystal:exploded`, `rainEater:exploded`, `lightning:strike`, `meteor:impact` and `singularity:collapsed` knock snow off, `firework:exploded` melts it; `page:hit` | its context only: flakes, settled, deepest |
+| `Tide` | Pixi (three bands of water) | `rain:landed` raises it and rings it; the force field (wind sets the swell, shock rings push the surface); presses at the water; bursts near it splash it; `lightning:strike`, `firework:exploded` and `meteor:impact` are reflected | its `level`, `surfaceY` and how far it has `raised` |
+| `Meadow` | Pixi (one mesh per row of grass) | the force field (gusts roll through it, shock rings flatten it); the pointer parts it and a press mows it; `lightning:strike` and `meteor:impact` scorch it; `rain:landed` flicks blades; DOM ledges (grass grows on them) | how many blades stand and how far it leans |
+| `Bubbles` | Three.js (glass spheres that refract the backdrop and the Pixi layer) | the force field; DOM ledges (they stop under them and slide round); presses pop them; the `rain` context (a droplet may pop one); the `rainEater` and `singularity` contexts; `crystal:exploded`, `rainEater:exploded`, `lightning:strike`, `meteor:impact`, `firework:exploded` and `singularity:collapsed` set off pops | where every bubble is; `bubble:popped`, `page:hit` |
+| `Confetti` | Three.js (instanced paper pieces) | `firework:exploded`, `singularity:collapsed` and `fireflies:synced` set it off; the force field; presses lift lying pieces; DOM ledges (pieces come to rest on them) | how many pieces fly and lie; `page:hit` |
+| `Fireflies` | Pixi | violent events scatter them (`lightning:strike`, `firework:exploded`, `crystal:exploded`, `rainEater:exploded`, `meteor:impact`, `bubble:popped`, `flock:startled`, `singularity:collapsed`) and so do presses; the `rain` context (they shelter under DOM ledges); the `serpent` context; the force field | the `fireflies` context (`count`, `sync`), `fireflies:synced` |
+| `Flock` | Pixi | the force field; the `rainEater`, `serpent` and `singularity` contexts and a pressed or fast pointer (kept clear of); `crystal:exploded`, `rainEater:exploded`, `lightning:strike`, `firework:exploded`, `meteor:impact`, `bubble:popped`, `singularity:collapsed`, presses and `page:hit` frighten it; DOM ledges (perches); the `rain` context (no perching in rain) | `count`, `perched`, `center` and `heading`; `flock:startled` |
+| `Serpent` | Three.js (instanced gems) | the pointer; the `flock` context (it hunts the birds); the `singularity` and `rainEater` contexts (it steers clear); `crystal:exploded`, `rainEater:exploded`, `meteor:impact`, `firework:exploded` and `singularity:collapsed` frighten it; `lightning:strike` runs down its body; the force field | its head position, velocity, length and `excited`; a vortex wake and a small repel force |
+| `Constellation` | Pixi | every event that has a position (`lightning:strike`, `rainEater:exploded`, `singularity:collapsed`, `crystal:exploded`, `meteor:impact`, `firework:exploded`, `bubble:popped`, `flock:startled`, `fireflies:synced`) and presses start a spark; the pointer is one more point; the force field | its context only: `nodes`, `links`, `signals` |
 | `BlankEffect` | nothing | nothing | the template to copy |
 
 `effects/Crystal/CrystalBody.ts` is not an effect but a building block shared by `RainEater`
@@ -241,6 +260,13 @@ edge with a 20–50% chance, and anywhere inside it with a small chance per tick
 shard stays on the element, then flies home; until it does, the crystal has a hole there.
 Rain follows the same wall rule (`effects/Rain/PageWalls.ts`), and the water it leaves pools,
 hangs from the element's underside and runs down its sides (`effects/Rain/PageWater.ts`).
+
+Five other effects keep their rules in a file with no renderer in it, which `bun test tests`
+runs: `Fireflies/sync.ts` (pulse-coupled oscillators), `Flock/boids.ts` (separation, alignment
+and cohesion), `Snow/SnowCap.ts` (a heightfield of snow that slumps, melts and can be carved),
+`Tide/WaterSurface.ts` (a row of spring columns whose disturbances spread as rings) and
+`Meadow/BladeRow.ts` (a row of grass blades, each a spring on its tip). They are importable by
+path like `CrystalBody`.
 
 ## Commands
 
@@ -252,6 +278,11 @@ bun test tests
 bun run build       # the lab, as a static site
 bun run build:lib   # what npm ships: JavaScript and type declarations in lib/
 ```
+
+`lab/solo.html?effects=wind,rain` runs just those effects, found by `effectName`, on a stage with
+two page elements tagged `ledge`. `node scripts/solo-shot.mjs out/rain "wind,rain"` photographs it
+in headless Chromium (it needs Playwright, which is not a dependency). The address parameters,
+the scripted input and the checklist for adding an effect are in `AGENTS.md`.
 
 ## Carrying a copy
 
