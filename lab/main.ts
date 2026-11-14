@@ -1,14 +1,34 @@
 import { AuroraRibbons } from '../effects/AuroraRibbons/AuroraRibbons';
+import { Bubbles } from '../effects/Bubbles/Bubbles';
 import { ClickExplosion } from '../effects/ClickExplosions/ClickExplosion';
+import { Confetti } from '../effects/Confetti/Confetti';
+import { Constellation } from '../effects/Constellation/Constellation';
 import { Crystals } from '../effects/Crystals/Crystals';
+import { Fireflies } from '../effects/Fireflies/Fireflies';
 import { FireworksEffect } from '../effects/Fireworks/FireworksEffect';
+import { Flock } from '../effects/Flock/Flock';
 import { LightningStorm } from '../effects/LightningStorm/LightningStorm';
+import { Meadow } from '../effects/Meadow/Meadow';
+import { Meteors } from '../effects/Meteors/Meteors';
+import { Nebula } from '../effects/Nebula/Nebula';
 import { Rain } from '../effects/Rain/Rain';
 import { RainEater } from '../effects/RainEater/RainEater';
+import { Serpent } from '../effects/Serpent/Serpent';
+import { Singularity } from '../effects/Singularity/Singularity';
+import { Snow } from '../effects/Snow/Snow';
+import { Tide } from '../effects/Tide/Tide';
 import { Wind } from '../effects/Wind/Wind';
 import { attachPageRipples, GradientType, VisualsManager } from '../src';
 import { createLabActions } from './actions';
-import { INTENSITY_LEVELS, INTENSITY_PRESETS, isEffectName, type EffectName, type IntensityLevel } from './intensity';
+import {
+    INTENSITY_LEVELS,
+    INTENSITY_PRESETS,
+    SCENE_PRESETS,
+    isEffectName,
+    type EffectName,
+    type IntensityLevel,
+    type SceneName,
+} from './intensity';
 import { initIntro } from './intro';
 import { exposeLabActions } from './webmcp';
 
@@ -30,16 +50,33 @@ const rain = new Rain({ gradient: GradientType.THEME });
 const fireworks = new FireworksEffect();
 
 // Run order is also draw order within each renderer, and decides who can read whom in the
-// same tick: the wind and the eater go first so everything after sees them as they are now.
-// Ribbons come before the rain so they sit behind it.
+// same tick. The wind goes first so everything sees this tick's wind. The sky comes next,
+// back to front (nebula, ribbons, constellation), so it sits behind the rest. The eater, the
+// black hole and the serpent come before the effects that steer by them (bubbles, rain,
+// meteors, the flock, the fireflies). Rain comes before the snow, the tide it fills and the
+// meadow it flicks. Lightning, fireworks and meteors follow, then the birds, the fireflies,
+// the confetti and the click sparks on top. An effect that reads one placed after it (the
+// nebula and the black hole read the rain, the serpent reads the flock) sees the last tick.
 manager
     .addEffect(new Wind())
+    .addEffect(new Nebula())
     .addEffect(new AuroraRibbons())
+    .addEffect(new Constellation())
     .addEffect(rainEater)
     .addEffect(new Crystals({ count: 5 }))
+    .addEffect(new Singularity())
+    .addEffect(new Serpent())
+    .addEffect(new Bubbles())
     .addEffect(rain)
+    .addEffect(new Snow())
+    .addEffect(new Tide())
+    .addEffect(new Meadow())
     .addEffect(new LightningStorm())
     .addEffect(fireworks)
+    .addEffect(new Meteors())
+    .addEffect(new Flock())
+    .addEffect(new Fireflies())
+    .addEffect(new Confetti())
     .addEffect(new ClickExplosion());
 
 // One set of operations for the panel, the keys, the intro, window.teroshedLab and WebMCP.
@@ -59,6 +96,7 @@ manager.run();
 
 const level = $<HTMLInputElement>('#level');
 const levelOut = $<HTMLOutputElement>('#level-out');
+const scene = $<HTMLSelectElement>('#scene');
 const effectBoxes = Array.from(document.querySelectorAll<HTMLInputElement>('input[data-effect]'));
 const speed = $<HTMLInputElement>('#speed');
 const speedOut = $<HTMLOutputElement>('#speed-out');
@@ -69,6 +107,7 @@ const motionButton = $<HTMLButtonElement>('#motion');
 const aboutButton = $<HTMLButtonElement>('#about');
 
 level.addEventListener('input', () => actions.setLevel(INTENSITY_LEVELS[Number(level.value)] as IntensityLevel));
+scene.addEventListener('change', () => actions.setScene(scene.value as SceneName));
 for (const box of effectBoxes) {
     box.addEventListener('change', () => actions.setEffectEnabled(box.dataset.effect as EffectName, box.checked));
 }
@@ -88,6 +127,8 @@ const render = (): void => {
     level.setAttribute('aria-valuetext', label);
     level.style.setProperty('--fill', `${(index / (INTENSITY_LEVELS.length - 1)) * 100}%`);
     levelOut.textContent = label;
+    scene.value = state.scene;
+    scene.title = SCENE_PRESETS[state.scene].summary;
     for (const box of effectBoxes) {
         const name = box.dataset.effect;
         box.checked = isEffectName(name) ? state.effects[name] : false;
@@ -107,7 +148,9 @@ render();
 
 const intro = initIntro(actions, aboutButton);
 aboutButton.addEventListener('click', () => intro.open());
-if (!actions.getState().skipIntro) {
+// `?intro=0` in the address skips it for this visit: a scripted visit has nobody to press Start.
+const introOff = new URLSearchParams(window.location.search).get('intro') === '0';
+if (!actions.getState().skipIntro && !introOff) {
     intro.open();
 }
 

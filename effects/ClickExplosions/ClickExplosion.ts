@@ -28,7 +28,9 @@ export interface ClickExplosionOptions {
  * Mutual effects:
  *   - a press sends a shock ring into the force field: the Pixi rain is thrown outward,
  *     the rain eater is shoved, and the composite ripples.
- *   - it answers `rainEater:exploded` with a large burst in the theme's colours.
+ *   - it answers `rainEater:exploded` and `singularity:collapsed` with a large burst in the
+ *     theme's colours, and `lightning:strike`, `crystal:exploded` and `meteor:impact` with
+ *     smaller ones.
  *   - sparks are themselves bent by the force field, so the rain eater's pull curls
  *     their trails.
  */
@@ -40,6 +42,7 @@ export class ClickExplosion extends Effect<ClickExplosionContext> {
     public static readonly EATER_BURST_COUNT = 190;
     public static readonly STRIKE_BURST_COUNT = 26;
     public static readonly CRYSTAL_BURST_COUNT = 60;
+    public static readonly IMPACT_BURST_COUNT = 70;
     public static readonly GRAVITY = 0.00055;
     /** Velocity kept per millisecond. */
     public static readonly DRAG = 0.9991;
@@ -182,6 +185,15 @@ export class ClickExplosion extends Effect<ClickExplosionContext> {
         for (const event of tickContext.events('crystal:exploded')) {
             const size = event.payload.radius / 40;
             this.burst(event.payload.x, event.payload.y, Math.round(ClickExplosion.CRYSTAL_BURST_COUNT * size * budget), 0.8 + size * 0.5);
+        }
+        for (const event of tickContext.events('meteor:impact')) {
+            const { x, y, power } = event.payload;
+            this.burst(x, y, Math.round(ClickExplosion.IMPACT_BURST_COUNT * power * budget), 0.7 + power * 0.7);
+        }
+        for (const event of tickContext.events('singularity:collapsed')) {
+            const { x, y } = event.payload;
+            this.burst(x, y, Math.round(ClickExplosion.EATER_BURST_COUNT * budget), 1.9);
+            this.context.lastBurst = { x, y };
         }
 
         const dt = tickContext.timeDelta;

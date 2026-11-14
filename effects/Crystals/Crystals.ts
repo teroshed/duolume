@@ -45,7 +45,9 @@ const SHAPES: readonly CrystalShape[] = ['icosahedron', 'octahedron', 'dodecahed
  * A broken crystal's shards fly, some catch on page elements (see CrystalBody), and they all
  * come home in the end. What sets a crystal off besides a click:
  *   - the rain eater exploding nearby (a chain reaction),
- *   - lightning landing close to it.
+ *   - lightning landing close to it,
+ *   - a meteor coming down close to it,
+ *   - a singularity collapsing nearby.
  * Every break sends a small shock ring into the force field, so rain and sparks feel it.
  */
 export class Crystals extends Effect<CrystalsContext> {
@@ -56,6 +58,8 @@ export class Crystals extends Effect<CrystalsContext> {
     public static readonly CHAIN_RANGE = 320;
     /** Lightning landing within this distance sets a crystal off. */
     public static readonly STRIKE_RANGE = 110;
+    /** A meteor landing within this distance sets a crystal off. */
+    public static readonly IMPACT_RANGE = 150;
     /** How much of the force field a crystal feels. */
     public static readonly FORCE_SHARE = 0.1;
     /** Top speed of a calm free-roaming crystal, in px/ms. */
@@ -189,6 +193,16 @@ export class Crystals extends Effect<CrystalsContext> {
         }
         for (const event of tickContext.events('lightning:strike')) {
             if (distanceV2(position, event.payload) < Crystals.STRIKE_RANGE) {
+                return true;
+            }
+        }
+        for (const event of tickContext.events('meteor:impact')) {
+            if (distanceV2(position, event.payload) < Crystals.IMPACT_RANGE) {
+                return true;
+            }
+        }
+        for (const event of tickContext.events('singularity:collapsed')) {
+            if (distanceV2(position, event.payload) < Crystals.CHAIN_RANGE) {
                 return true;
             }
         }

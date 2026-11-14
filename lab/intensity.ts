@@ -7,6 +7,18 @@ export const EFFECT_NAMES = [
     'rainEater',
     'wind',
     'crystals',
+    'nebula',
+    'constellation',
+    'tide',
+    'meadow',
+    'singularity',
+    'serpent',
+    'bubbles',
+    'snow',
+    'meteors',
+    'flock',
+    'fireflies',
+    'confetti',
 ] as const;
 export type EffectName = (typeof EFFECT_NAMES)[number];
 
@@ -36,7 +48,8 @@ const on = (...names: EffectName[]): Record<EffectName, boolean> => {
 
 /**
  * Five steps from calm to everything. Each level adds effects to the one before it and
- * lets flashes, ripples and glow through a little more.
+ * lets flashes, ripples and glow through a little more. The effect sets are the original
+ * eight (the Storm scene); every effect added later is off at every level.
  */
 export const INTENSITY_PRESETS: Record<IntensityLevel, IntensityPreset> = {
     minimal: {
@@ -83,6 +96,66 @@ export const INTENSITY_PRESETS: Record<IntensityLevel, IntensityPreset> = {
 
 /** What a first-time visitor gets before they choose. */
 export const DEFAULT_LEVEL: IntensityLevel = 'low';
+
+export const SCENE_NAMES = ['storm', 'meadow', 'winter', 'sea', 'party', 'space', 'everything'] as const;
+export type SceneName = (typeof SCENE_NAMES)[number];
+
+export interface ScenePreset {
+    label: string;
+    /** One sentence saying what the visitor will see in this scene and what to try. */
+    summary: string;
+    /** null: the intensity level decides (the original eight). */
+    effects: Record<EffectName, boolean> | null;
+}
+
+/**
+ * Named sets of effects that belong together. In every scene but Storm the intensity level
+ * still sets flashes, ripples, glow, rain and shells, but no longer chooses the effects.
+ */
+export const SCENE_PRESETS: Record<SceneName, ScenePreset> = {
+    storm: {
+        label: 'Storm',
+        summary: 'Rain, ribbons, crystals and the rain eater; the intensity level adds sparks, fireworks and lightning.',
+        effects: null,
+    },
+    meadow: {
+        label: 'Night meadow',
+        summary: 'Grass that shows the wind, fireflies that fall into step, and birds that land on the panel. Blow with the arrow keys.',
+        effects: on('wind', 'meadow', 'fireflies', 'flock', 'constellation'),
+    },
+    winter: {
+        label: 'Winter',
+        summary: 'Snow that piles up on the panel and shelves, under ribbons of light and a cloud that glows when a crystal breaks. Blow it sideways with the arrow keys.',
+        effects: on('wind', 'snow', 'nebula', 'crystals', 'auroraRibbons'),
+    },
+    sea: {
+        label: 'Rising tide',
+        summary: 'Rain raises a sea along the bottom, bubbles rise and slide under the shelves, and a serpent follows the pointer. Press B to blow bubbles.',
+        effects: on('wind', 'rain', 'tide', 'bubbles', 'serpent'),
+    },
+    party: {
+        label: 'Celebration',
+        summary: 'Fireworks, confetti and sparks under ribbons of light. Press C to fire the cannons, Space to burst the shells.',
+        effects: on('wind', 'fireworks', 'confetti', 'clickExplosion', 'auroraRibbons'),
+    },
+    space: {
+        label: 'Deep space',
+        summary: 'A black hole that swallows the rain and bends passing meteors, among stars that pass on every impact. Press G to move it to the pointer, M to send a meteor.',
+        effects: on('wind', 'singularity', 'rain', 'meteors', 'constellation', 'clickExplosion'),
+    },
+    everything: {
+        label: 'Everything',
+        summary: 'All twenty effects at once: busy, bright and heavy on the machine.',
+        effects: on(...EFFECT_NAMES),
+    },
+};
+
+/** What a first-time visitor gets before they choose. */
+export const DEFAULT_SCENE: SceneName = 'storm';
+
+export function isSceneName(value: unknown): value is SceneName {
+    return typeof value === 'string' && (SCENE_NAMES as readonly string[]).includes(value);
+}
 
 export function isIntensityLevel(value: unknown): value is IntensityLevel {
     return typeof value === 'string' && (INTENSITY_LEVELS as readonly string[]).includes(value);

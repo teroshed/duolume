@@ -1,6 +1,6 @@
 import { GradientType } from '../src';
 import type { LabActions } from './actions';
-import { EFFECT_NAMES, INTENSITY_LEVELS, INTENSITY_PRESETS } from './intensity';
+import { EFFECT_NAMES, INTENSITY_LEVELS, INTENSITY_PRESETS, SCENE_NAMES, SCENE_PRESETS } from './intensity';
 
 interface ToolResult {
     content: { type: 'text'; text: string }[];
@@ -43,16 +43,25 @@ export function exposeLabActions(actions: LabActions): { webmcp: boolean } {
     const tools: ModelContextTool[] = [
         {
             name: 'lab_get_state',
-            description: 'Read the engine lab state: intensity level, which effects are on, speed, rain, gradient, paused.',
+            description: 'Read the engine lab state: scene, intensity level, which effects are on, speed, rain, gradient, paused.',
             inputSchema: object({}, []),
             execute: reply,
         },
         {
             name: 'lab_set_intensity',
-            description: `Apply an intensity level. ${INTENSITY_LEVELS.map((level) => `${level}: ${INTENSITY_PRESETS[level].summary}`).join(' ')}`,
+            description: `Apply an intensity level. Outside the storm scene it sets only rain, shells and brightness, not which effects run. ${INTENSITY_LEVELS.map((level) => `${level}: ${INTENSITY_PRESETS[level].summary}`).join(' ')}`,
             inputSchema: object({ level: { type: 'string', enum: [...INTENSITY_LEVELS] } }, ['level']),
             execute: (input) => {
                 actions.setLevel(input.level as never);
+                return reply();
+            },
+        },
+        {
+            name: 'lab_set_scene',
+            description: `Switch to a scene, a set of effects that belong together. ${SCENE_NAMES.map((scene) => `${scene}: ${SCENE_PRESETS[scene].summary}`).join(' ')}`,
+            inputSchema: object({ scene: { type: 'string', enum: [...SCENE_NAMES] } }, ['scene']),
+            execute: (input) => {
+                actions.setScene(input.scene as never);
                 return reply();
             },
         },

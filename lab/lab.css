@@ -69,7 +69,8 @@ body {
 
 .panel {
   width: min(300px, 100%);
-  margin-top: 18px;
+  /* It is a ledge: grass and snow stand on its top edge, and need room under the header text. */
+  margin-top: 38px;
   padding: 14px;
   border: 1px solid var(--line);
   border-radius: 14px;
@@ -209,16 +210,19 @@ button:hover {
 }
 
 .panel {
-  max-height: calc(100vh - 175px);
   overflow-y: auto;
   scrollbar-width: thin;
 }
 
+/* Grass, snow and the sea all reach the bottom edge, so the hint carries its own backing. */
 .hint {
   position: absolute;
-  left: 20px;
-  bottom: 14px;
+  left: 14px;
+  bottom: 10px;
   margin: 0;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: rgba(6, 8, 13, 0.6);
   color: var(--muted);
   font-size: 12px;
 }
@@ -583,6 +587,33 @@ button.primary:active {
 
 /* ---------- compact panel: every control visible without scrolling ---------- */
 
+/* The header, then the panel, in a column as tall as the viewport: the panel shrinks to what is
+   left (and scrolls inside itself) however tall the header wraps. The bottom padding keeps it
+   clear of the hint line. */
+.lab {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding-bottom: 42px;
+}
+
+.lab-head {
+  flex: none;
+}
+
+.panel {
+  position: relative;
+  z-index: 1;
+  flex: 0 1 auto;
+  min-height: 0;
+}
+
+@media (max-width: 720px) {
+  .lab {
+    padding-bottom: 20px;
+  }
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
@@ -642,19 +673,31 @@ button.primary:active {
   color: var(--text);
 }
 
-.keys {
+.fold {
+  margin: 0;
   padding: 8px 0 0;
+  border-top: 1px solid var(--line);
   display: block;
+  font-size: 12px;
 }
 
-.keys summary {
+.fold + .fold {
+  margin-top: -2px;
+}
+
+.fold summary {
   cursor: pointer;
   color: var(--muted);
   border-radius: 6px;
 }
 
-.keys summary:hover {
+.fold summary:hover {
   color: var(--text);
+}
+
+.fold .readout {
+  margin-top: 8px;
+  font-size: 13px;
 }
 
 .keys ul {
