@@ -69,9 +69,12 @@ decide.
 | --- | --- | --- | --- |
 | 25 | The cloud session could not attach the PC's folders (they are in the Remote Control list but not offered to cloud sessions). The workspace was readable only through NexusMCP, which lists and reads but does not search: finding the engine's folder and the documentation site took 108 tool calls. | *proposed*: a text search tool in NexusMCP. Until then, `AGENTS.md` now names the documentation site and what it needs. | none |
 | 26 | The engine's folder on the PC is still called `web-visualizer-manager`. A search for "duolume" does not find it. | *proposed*: rename it when nothing has it open. | a few stale shortcuts |
-| 27 | The documentation site (`engine-docs`) has no git remote and holds uncommitted work, so nothing in the cloud can update it or check it. | *done*: `docs/engine-docs-kit/` in this branch holds the twelve example programs (compiled against this repository), the gallery entries and the reference rows, with the steps to apply them. *proposed*: give `engine-docs` a private remote. | a remote to push to |
+| 27 | The documentation site (`engine-docs`) has no git remote, so nothing in the cloud can update it or check it. (The brief also said it held uncommitted work. That came from a hand-over note that had gone stale: it was clean.) | *done*: a kit was carried in this repository (twelve example programs compiled against it, the gallery entries, the reference rows, the steps). The PC session applied it and deployed the site on 14 November, and the kit was then removed. *proposed*: give `engine-docs` a private remote. | a remote to push to |
 | 28 | Starting a session on the PC from the cloud is refused until its owner approves in person; the approval then limits the cloud session to trusted devices for good. | *done*: approved once in this session. Worth knowing before planning work around a PC companion. | one approval |
 | 29 | The orchestrator's own brief told an agent to use `baseUrl` in a temporary tsconfig; TypeScript 7 rejects it. | *done*: the agent used absolute `paths`. Noted here because the repository is on TypeScript 7 and older habits fail on it. | none |
+| 30 | The PC session could not message the cloud session back ("not vouched for as a trusted device"): only the cloud side had been approved. Its two reports reached the cloud session by being read off the PC's disk and by the owner pasting them. | *proposed (practice)*: have a companion session write its report to a file from the start, and say where. Do not plan on a reply. | a paste |
+| 31 | The PC session would not publish on an approval relayed by another session, even quoted and offered for checking in the transcript. It asked its owner one yes/no question in its own chat instead. | *nothing to fix*: this is the right behaviour, and it cost one word. Worth knowing when planning: a deploy from a companion session needs its owner present there. | one word, typed in the right chat |
+| 32 | A check-in the cloud session scheduled for itself failed with "access denied" after the session had been limited to trusted devices. | *not understood*. Do not rely on a scheduled wake-up in a session that has been through the trust approval. | none |
 
 ## What worked, to keep
 
@@ -88,10 +91,27 @@ decide.
   reading, not writing.
 - **Asking every agent for a friction list.** Most of this file came from them.
 
+## Checked afterwards, on a real GPU
+
+A companion session on the PC (RTX 4070 SUPER, hardware WebGL through Direct3D 11, a 60 Hz
+display) measured the branch before it was merged:
+
+- All twelve effects, six combinations and the seven lab scenes hold 60 frames per second at a
+  full budget, at 1920×1080 and on a 5120×2880 canvas. No frame over 17.6 ms after start-up,
+  including bursts, impacts, pops and the collapse. No console errors, nothing wrong in the
+  screenshots.
+- A frame costs 1.2 to 2.0 ms per effect at 1080p and 3.5 to 4.7 ms at 5K (the nebula is the
+  dearest). All twenty together cost 10 to 12 ms, about 7 ms of it JavaScript: that fits 60 Hz
+  and would not fit 144 Hz.
+- It found the governor reading page start-up as a slow machine (79 to 88% budget for the first
+  eight to ten seconds of every load). That is engine code and has its own fix (`warmupMs`).
+- With the browser's frame-rate cap removed, snow at 5K and confetti showed stalls that do not
+  appear at 60 Hz. Probably an artefact of that mode; unchecked on a 120 or 144 Hz display.
+- `g` moves the singularity slowly: a drift toward the pointer, not a summons.
+
+The documentation site was brought up to date from the merged `main` and deployed the same day.
+
 ## Not checked
 
-- Frame rates and motion on a real GPU. Everything above was judged from still frames rendered
-  in software. A companion session on the PC was started for this; its report is separate.
-- The documentation site itself: the kit was compiled against this repository, not run on the
-  site.
-- A phone, a screen reader, forced colours.
+- How the motion looks to the eye. Both sessions judged from frame timings and still frames.
+- Anything above 60 Hz, a weak GPU, a phone, a screen reader, forced colours.
