@@ -1,6 +1,6 @@
 /**
  * How a bubble meets a page element: a circle that may not overlap a rectangle.
- * Renderer-free, so the rules can be tested on their own (tests/bubbles.test.ts).
+ * Renderer-free, so the rules can be tested on their own: see tests/bubbles.test.ts.
  */
 
 /** A page element's rectangle in stage pixels. `AnchorRect` fits. */
@@ -34,6 +34,10 @@ export const SQUASH_WIDE = 0.1;
  * over it, or it was born there) it leaves by the nearest side, the underside first on a tie.
  */
 export function touch(cx: number, cy: number, radius: number, box: Box, out: Contact): boolean {
+    // Nothing to push: no size, or a position that is not a number.
+    if (!(radius > 0) || !Number.isFinite(cx) || !Number.isFinite(cy)) {
+        return false;
+    }
     const left = box.x;
     const right = box.x + box.width;
     const top = box.y;

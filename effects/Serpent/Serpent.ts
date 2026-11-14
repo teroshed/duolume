@@ -28,19 +28,21 @@ const TAU = Math.PI * 2;
  *
  * What it listens to:
  *   - the pointer: it comes over and circles it, and loses interest when the pointer has been
- *     still for a while. A press close to its head frightens it (not a press on a link or button).
- *   - `flock` context: it chases the birds in flight (it never catches one; they read its
- *     context and flee).
+ *     still for a while (20 seconds). A press within 200 px of its head frightens it (not a press
+ *     on a link or button).
+ *   - `flock` context: it chases the birds in flight, and that outranks the pointer (option
+ *     `hunt`). It never catches one; they read its context and flee.
  *   - `singularity` and `rainEater` contexts: it steers clear of both.
  *   - `crystal:exploded`, `rainEater:exploded`, `meteor:impact`, `firework:exploded` near its
  *     head, and `singularity:collapsed` anywhere: it darts away.
- *   - `lightning:strike`: a bolt that passes near any part of its body sends a white-hot band
- *     of light from head to tail.
+ *   - `lightning:strike`: a bolt that passes within 260 px of its body sends a band of light
+ *     from head to tail.
  *   - the force field: wind drifts it, a shock ring shoves it and startles it a little.
  * What it tells the others: its `headPosition` (with depth), `velocity`, `length` and how
- * `excited` it is; and it stirs the force field with a pair of counter-turning vortices and a
- * small repel at the head, so rain swirls in its wake. The wake fades out when it is deep
- * behind the stage or close to the viewer.
+ * `excited` it is; and it stirs the force field with a vortex and a small repel at the head and
+ * a counter-turning vortex at the middle of the body, so rain swirls in its wake. The wake
+ * fades out when the head or the middle is deep behind the stage or close to the viewer. No
+ * events, no shock rings.
  * Keys: none.
  */
 export class Serpent extends Effect<SerpentContext> {

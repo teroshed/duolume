@@ -71,21 +71,24 @@ const MAX_PUFF_PER_TICK = 30;
 /**
  * Snow that settles on the page. Flakes drift down in three depth layers and pile up as rounded
  * caps on top of every element tagged `ledge` and along the bottom of the stage. The piles are
- * real heightfields: they slump when too steep, the wind shaves them, a shock ring or an
- * explosion knocks snow off in a puff, and moving the pointer through one wipes it away. Left
- * alone the piles slowly melt, so they never just fill up.
+ * real heightfields: they slump when too steep, strong wind shaves them, an explosion or a press
+ * nearby knocks snow off in a puff, and moving the pointer through one wipes it away. Left alone
+ * the piles slowly melt, so they never just fill up.
  *
  * What it listens to:
  * - the force field: flakes are very light, so wind makes them slant and stream, and shock rings blast them;
- *   a strong wind also shaves the tops of the piles and carries the snow off as spindrift
+ *   a strong push (wind of about 0.0005 px/ms² and more, or a shock ring passing) also shaves the
+ *   tops of the piles and carries the snow off as spindrift
  * - elements tagged `ledge`: snow settles on their top edge (option `pageInteraction`)
- * - the pointer: moving through a pile wipes snow off it; a press near a pile knocks off a bigger scoop
- * - `crystal:exploded`, `rainEater:exploded`, `lightning:strike`, `meteor:impact` near a pile, and
- *   `singularity:collapsed` anywhere: they knock snow off in a puff
- * - `firework:exploded` near a pile: melts it a little
+ * - the pointer: moving through a pile wipes snow off it; a press (not on a button or link) within
+ *   120 px of a pile knocks off a bigger scoop
+ * - `crystal:exploded`, `rainEater:exploded`, `lightning:strike` and `meteor:impact` within 200 to 320 px
+ *   of a pile, and `singularity:collapsed` within 900 px: they knock snow off in a puff
+ * - `firework:exploded` within 260 px of a pile: melts it a little
  * - `page:hit` on an element: shakes a little snow loose at that spot
  *
- * What it tells the others: its context (`flakes`, `settled`, `deepest`). It emits no events.
+ * What it tells the others: its context (`flakes`, `settled`, `deepest`). It emits no events and
+ * adds no forces.
  *
  * Keys: none.
  */
@@ -236,9 +239,9 @@ export class Snow extends Effect<SnowContext> {
         }
         this.themeKey = key;
         this.flakeTint = mixColor(t.ink, t.accent, 0.15);
-        const top = mixColor(0xffffff, t.accent, 0.06);
-        const shade = mixColor(mixColor(top, 0x8fa8d6, 0.55), t.accentAlt, 0.1);
-        this.rimColor = mixColor(0xffffff, t.ink, 0.1);
+        const top = mixColor(0xb0bdd5, t.accent, 0.06);
+        const shade = mixColor(mixColor(top, 0x5f78a6, 0.55), t.accentAlt, 0.1);
+        this.rimColor = mixColor(0xc2cee4, t.ink, 0.1);
         this.gradient?.destroy();
         this.gradient = new FillGradient({
             type: 'linear',

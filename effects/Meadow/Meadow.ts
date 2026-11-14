@@ -9,13 +9,13 @@ import { BladeRow, bladeIndices, SEGMENTS, VERTS_PER_BLADE, writeBlade } from '.
 export interface MeadowOptions {
     /** Blades per 100 px of ground, 0..90. Default `DENSITY` (36). */
     density?: number;
-    /** Typical blade height on the stage floor, in px (page elements grow about 55% of it). Default `HEIGHT` (46). */
+    /** Typical blade height on the stage floor, in px, 4..400 (page elements grow about 55% of it). Default `HEIGHT` (46). */
     height?: number;
     /** Grow along the bottom of the stage. Default true. */
     ground?: boolean;
     /** Grow along the top edge of page elements tagged "ledge". Default true. */
     ledges?: boolean;
-    /** Milliseconds for a cut or scorched blade to grow back. Default `REGROW_MS` (9000). */
+    /** Milliseconds for a cut or scorched blade to grow back, at least 100. Default `REGROW_MS` (9000). */
     regrow?: number;
 }
 
@@ -46,19 +46,20 @@ const MAX_CLIPPINGS = 48;
 const LEDGE_SCALE = 0.55;
 
 /**
- * Grass along the bottom of the stage and on top of every page element tagged "ledge". It does
- * nothing on its own: every movement is a reaction to the force field, so wind gusts roll through
- * it as travelling waves, shock rings flatten circles that spring back, and attractors make it lean.
+ * Grass along the bottom of the stage and on top of every page element tagged "ledge". Apart from
+ * a faint breathing it moves only in reaction to the force field: wind gusts roll through it as
+ * travelling waves, shock rings flatten circles that spring back, and attractors make it lean.
  * Each blade is a damped spring on its tip; each row is one Pixi mesh.
  *
  * What it listens to:
  *   - the force field, sampled at every blade's tip: wind, shock rings, attract/repel/vortex.
- *   - the pointer: blades part around it, more when it moves fast. A press mows the grass under it.
- *   - `lightning:strike` and `meteor:impact` events: blades nearby are scorched to stubble.
+ *   - the pointer: blades part around it, more when it moves fast. A press (not on a button or
+ *     link) mows the grass within 55 px of it.
+ *   - `lightning:strike` and `meteor:impact` events: blades within 90 px are scorched to stubble.
  *   - `rain:landed` events: a droplet flicks the blade it lands on.
  *   - elements tagged "ledge": grass grows on their top edges and follows them.
- * It tells the others how many blades stand and how far the grass leans. Cut and scorched
- * blades grow back. No keys.
+ * What it tells the others: how many blades stand and how far the grass leans (its context).
+ * No events, no forces. Cut and scorched blades grow back. No keys.
  */
 export class Meadow extends Effect<MeadowContext> {
     public effectName = 'meadow';

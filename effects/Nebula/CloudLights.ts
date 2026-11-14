@@ -52,7 +52,8 @@ export class CloudLights {
         weakest.x = x;
         weakest.y = y;
         weakest.color = color;
-        weakest.intensity = Math.max(0, intensity);
+        // A NaN would never fall below the threshold, and the light would stay lit for good.
+        weakest.intensity = Number.isFinite(intensity) ? Math.max(0, intensity) : 0;
         weakest.radius = Math.max(1, radius);
         weakest.halfLife = Math.max(1, halfLife);
         weakest.flickerIn = Math.max(0, flickerIn);
@@ -77,7 +78,10 @@ export class CloudLights {
             } else {
                 light.intensity *= Math.pow(0.5, dt / light.halfLife);
             }
-            if (light.intensity < LIGHT_THRESHOLD) {
+            if (light.flickerIn > 0) {
+                // Still to come back: a quick fade must not put it out before its flicker.
+                glowing++;
+            } else if (light.intensity < LIGHT_THRESHOLD) {
                 light.intensity = 0;
             } else {
                 glowing++;

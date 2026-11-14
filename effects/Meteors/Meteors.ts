@@ -6,15 +6,15 @@ import type { EffectContext, TickContext, TimedContext, Vector3 } from '../../sr
 import type { MeteorsContext } from '../contracts';
 
 export interface MeteorsOptions {
-    /** Shortest quiet time between meteors, in milliseconds of simulation time. Default 2500 (`Meteors.INTERVAL_MIN_MS`). */
+    /** Shortest quiet time between meteors, in milliseconds of simulation time, at least 50. Default 2500 (`Meteors.INTERVAL_MIN_MS`). */
     intervalMin?: number;
-    /** Longest quiet time between meteors, in milliseconds. A random time between the two is used. Default 7000 (`Meteors.INTERVAL_MAX_MS`). */
+    /** Longest quiet time between meteors, in milliseconds. A random time between the two is used; never below `intervalMin`. Default 7000 (`Meteors.INTERVAL_MAX_MS`). */
     intervalMax?: number;
-    /** Multiplier on flight speed (1 is about 0.7 to 1.2 pixels per millisecond). Default 1 (`Meteors.SPEED`). */
+    /** Multiplier on flight speed (1 is about 0.7 to 1.2 pixels per millisecond), 0.1..4. Default 1 (`Meteors.SPEED`). */
     speed?: number;
     /** True: a meteor can land on the top edge of an element tagged `ledge`. Default true (`Meteors.PAGE_INTERACTION`). */
     pageInteraction?: boolean;
-    /** True: a big impact (power above 0.6) sends one shock ring through the force field. Default true (`Meteors.SHOCK`). */
+    /** True: a big impact (power above 0.6) sends one shock ring through the force field; the flash happens either way. Default true (`Meteors.SHOCK`). */
     shock?: boolean;
 }
 
@@ -50,15 +50,17 @@ interface Scar {
  *
  * What it listens to:
  * - the force field (acceleration at the head, scaled down: heavy things turn slowly)
- * - the `wind` context (meteors lean with it when it blows)
+ * - the `wind` context, when a meteor is sent (more of them travel the way it blows)
  * - the `rainEater` and `singularity` contexts (a meteor that enters their body lands there)
  * - elements tagged `ledge` (a meteor crossing the top edge from above lands on it)
+ * - the pointer, for the `m` key only
  *
  * What it tells the others: the `meteors` context (in flight, impacts so far), a `meteor:impact`
  * event for every landing, `page:hit` when one lands on an element, a short flash and one shock
  * ring for big impacts only.
  *
- * Keys: `m` sends a meteor to the pointer (or a random spot when it is not on the stage).
+ * Keys: `m` sends one big meteor (power 0.8) to the pointer, or to a random spot in the lower half
+ * of the stage when the pointer is not on it. Nothing is sent while four are in flight.
  */
 export class Meteors extends Effect<MeteorsContext> {
     public effectName: string = 'meteors';

@@ -234,7 +234,7 @@ export interface FlockContext {
     heading: Vector3;
 }
 
-/** Emitted by `flock` when several birds are frightened at once. */
+/** Emitted by `flock` when three or more birds take fright at once (at most one every 400 ms). */
 export interface FlockStartledEvent {
     /** What they fled from, in stage pixels. */
     x: number;
@@ -246,8 +246,9 @@ export interface FlockStartledEvent {
 // ---- constellation ----------------------------------------------------------------
 
 export interface ConstellationContext {
+    /** Points showing right now (fewer when frames are slow). The pointer's point is not counted. */
     nodes: number;
-    /** Links drawn right now. */
+    /** Links right now, the pointer's included. */
     links: number;
     /** Signals travelling along links right now. */
     signals: number;
@@ -269,7 +270,7 @@ export interface SnowContext {
 export interface ConfettiContext {
     /** Pieces alive, flying and lying. */
     pieces: number;
-    /** Pieces lying on the ground or on a page element. */
+    /** Pieces lying on the ground or on a page element (those about to leave included). */
     resting: number;
 }
 
@@ -306,7 +307,7 @@ export interface TideContext {
 export interface NebulaContext {
     /** 0..1: how much cloud there is right now. Thickens while it rains. */
     density: number;
-    /** Lights currently glowing inside the cloud (strikes, bursts, impacts). */
+    /** Lights currently glowing inside the cloud (strikes, bursts, impacts), at most 6. The pointer's lantern is not counted. */
     lights: number;
 }
 

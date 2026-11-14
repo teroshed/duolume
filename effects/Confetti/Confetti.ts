@@ -29,7 +29,7 @@ export interface ConfettiOptions {
     burst?: number;
     /** Milliseconds between the shots it fires on its own; 0 fires only on events and the key. Default `INTERVAL_MS` (9000). */
     interval?: number;
-    /** Downward pull in px/ms². Default `GRAVITY` (0.0007). */
+    /** Downward pull in px/ms², 0 to 0.01. Default `GRAVITY` (0.0007). */
     gravity?: number;
     /** Let pieces come to rest on elements tagged "ledge". False ignores the page. Default true. */
     pageInteraction?: boolean;
@@ -150,7 +150,7 @@ export class Confetti extends Effect<ConfettiContext> {
         const material = new ShaderMaterial({
             uniforms: {
                 uLight: { value: new Vec3(-0.4, 0.55, 0.73).normalize() },
-                uGain: { value: 0.92 },
+                uGain: { value: 1.5 },
             },
             vertexShader: /* glsl */ `
                 varying vec3 vNormal;
@@ -176,12 +176,12 @@ export class Confetti extends Effect<ConfettiContext> {
                     vec3 v = normalize(vView);
                     // Bright when it faces the key light, dark edge-on.
                     float facing = abs(dot(n, uLight));
-                    float lum = 0.14 + 0.86 * facing * facing;
+                    float lum = 0.12 + 0.88 * facing * facing;
                     // The back of the paper is a shade darker and cooler, so a flip shows.
                     vec3 base = gl_FrontFacing ? vColour : vColour * vec3(0.55, 0.58, 0.7);
                     vec3 nv = dot(n, v) < 0.0 ? -n : n;
                     float glint = pow(max(dot(reflect(-uLight, nv), v), 0.0), 160.0);
-                    vec3 colour = base * lum * uGain + vec3(0.9) * glint;
+                    vec3 colour = min(base * lum * uGain, vec3(0.85)) + vec3(0.9) * glint;
                     gl_FragColor = vec4(colour, 1.0);
                 }
             `,
@@ -269,8 +269,8 @@ export class Confetti extends Effect<ConfettiContext> {
         this.yaw[n] = Math.random() * Math.PI * 2;
         this.yawRate[n] = randomNumber(-0.0016, 0.0016);
         this.axis[n] = Math.random() * Math.PI;
-        this.w[n] = randomNumber(6, 13);
-        this.h[n] = randomNumber(4, 8);
+        this.w[n] = randomNumber(7.2, 15.6);
+        this.h[n] = randomNumber(4.8, 9.6);
         this.colour[n] = Math.floor(Math.random() * this.palette.length);
         this.state[n] = FLYING;
         this.settle[n] = 0;

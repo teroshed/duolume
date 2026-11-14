@@ -11,11 +11,11 @@ import { Fears } from './fears';
 export interface FlockOptions {
     /** Birds at full frame budget, 0..150. Default `COUNT` (60). */
     count?: number;
-    /** Land on page elements tagged "ledge". Default true. */
+    /** Land on page elements tagged "ledge". False keeps every bird in the air. Default true. */
     perch?: boolean;
     /** Multiplier on flying speed, 0.2..3. Default `SPEED` (1). */
     speed?: number;
-    /** Multiplier on how strongly the birds flee and how easily they startle; 0 is fearless. Default `FEAR` (1). */
+    /** Multiplier on how strongly the birds flee and how easily they startle; 0 or less is fearless. Default `FEAR` (1). */
     fear?: number;
 }
 
@@ -43,7 +43,8 @@ const PERCH_SCALE = 0.3;
  *   - `crystal:exploded`, `rainEater:exploded`, `lightning:strike`, `firework:exploded`,
  *     `meteor:impact`, `bubble:popped`, `singularity:collapsed`: birds within range take fright.
  *   - `page:hit` (anything but rain): birds sitting on that element fly off.
- *   - elements tagged "ledge": perches, followed as they move. `rain` context: no perching in rain.
+ *   - elements tagged "ledge": perches, followed as they move. `rain` context: while its
+ *     `dropCount` is above 20, no bird lands and those sitting leave within about three seconds.
  * What it tells the others: its `count`, `perched`, `center` and `heading`, and a
  * `flock:startled` event when three or more birds take fright at once.
  * Keys: none.

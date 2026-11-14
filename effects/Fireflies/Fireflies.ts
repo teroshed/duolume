@@ -8,11 +8,11 @@ import { createSwarm, orderParameter, stepSwarm, type Swarm } from './sync';
 export interface FirefliesOptions {
     /** Fireflies at full budget. 0..300. Default `Fireflies.COUNT` (90). */
     count?: number;
-    /** Milliseconds between one firefly's own flashes (each gets this ±12%). Default `Fireflies.PERIOD_MS` (2200). */
+    /** Milliseconds between one firefly's own flashes (each gets this ±12%), 300..30000. Default `Fireflies.PERIOD_MS` (2200). */
     period?: number;
     /** How hard a seen flash pulls a firefly forward, as a share of its own phase. 0 never syncs. Default `Fireflies.COUPLING` (0.1). */
     coupling?: number;
-    /** Pixels within which one firefly sees another's flash. Default `Fireflies.REACH` (170). */
+    /** Pixels within which one firefly sees another's flash; 0 or less means none sees any. Default `Fireflies.REACH` (170). */
     reach?: number;
     /** Hide under page elements tagged "ledge" while it rains. Default `Fireflies.SHELTER` (true). */
     shelter?: boolean;
@@ -57,12 +57,13 @@ const SCARES: readonly (readonly [string, number])[] = [
  * back. They wander slowly, are carried by wind and shock rings, and keep off the edges of the stage.
  *
  * What it listens to:
- *   - `lightning:strike`, `firework:exploded`, `crystal:exploded`, `rainEater:exploded`,
- *     `meteor:impact` (within 260 px), `flock:startled` (200 px), `bubble:popped` (80 px) and
+ *   - `lightning:strike`, `firework:exploded`, `crystal:exploded`, `rainEater:exploded` and
+ *     `meteor:impact` (each within 260 px), `flock:startled` (200 px), `bubble:popped` (80 px) and
  *     `singularity:collapsed` (everywhere): fireflies in reach get a random phase and a shove.
  *   - a press of the pointer (not on a button or link): the same, within 150 px. A hand that only moves is no threat.
- *   - the `rain` context: while `dropCount` is above 20, most fireflies gather in the dry strip
- *     under the nearest element tagged "ledge" (option `shelter`), and wander off when it stops.
+ *   - the `rain` context: while `dropCount` is above 20 (until it falls below 8), most fireflies
+ *     gather in the dry strip under the nearest element tagged "ledge" (option `shelter`), and
+ *     wander off when it stops.
  *   - the `serpent` context: they steer away from its head when it comes within 180 px.
  *   - the force field: wind and shock rings carry them, then they settle back to wandering.
  *   - the frame budget: fewer fireflies are shown when frames are slow, the extras fade out.
@@ -281,9 +282,9 @@ export class Fireflies extends Effect<FirefliesContext> {
             this.heading[i] = Math.random() * Math.PI * 2;
             this.speed[i] = 0.01 + Math.random() * 0.03;
             this.bob[i] = Math.random() * Math.PI * 2;
-            this.baseAlpha[i] = 0.1 + Math.random() * 0.06;
+            this.baseAlpha[i] = 0.19 + Math.random() * 0.08;
             this.sheltering[i] = Math.random() < 0.7 ? 1 : 0;
-            this.slotU[i] = 0.08 + Math.random() * 0.84;
+            this.slotU[i] = -0.05 + Math.random() * 1.1;
             this.slotV[i] = Math.random();
             this.alt[i] = Math.random() < ALT_SHARE ? 1 : 0;
         }
@@ -378,8 +379,10 @@ export class Fireflies extends Effect<FirefliesContext> {
             let ty = y;
             for (let k = 0; k < ledges.length; k++) {
                 const ledge = ledges[k];
-                const px = ledge.x + this.slotU[i] * ledge.width;
-                const py = ledge.y + ledge.height + 10 + this.slotV[i] * 30;
+                const px = ledge.x + this.slotU[i] * ledge.width + Math.cos(this.bob[i] * 0.45 + this.slotV[i] * 6) * 10;
+                // A ragged huddle 10 to 90 px under the element: the depth limit varies along its width.
+                const reach = 38 + 36 * (0.5 + 0.5 * Math.sin(this.slotU[i] * 9 + 1.3));
+                const py = ledge.y + ledge.height + 16 + this.slotV[i] * reach + Math.sin(this.bob[i] * 0.6) * 6;
                 const d = Math.hypot(px - x, py - y);
                 if (d < bestD) {
                     bestD = d;

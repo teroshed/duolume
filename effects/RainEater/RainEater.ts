@@ -35,6 +35,9 @@ export interface RainEaterOptions {
  *                       `rainEater:exploded` event goes out (the click-explosion effect answers
  *                       with sparks), and the crystal breaks into shards that fly, catch on
  *                       page elements, and come home.
+ *   strikes, impacts    a `lightning:strike` that ends on the head, or a `meteor:impact` within a
+ *                       radius and 24 px of it, is a big meal: it charges the head by a quarter
+ *                       (a meteor by a quarter times 0.5 plus its power).
  *   pixels              the crystal is glass: its shader samples the Pixi layer behind it,
  *                       so droplets are seen refracted through its facets.
  */

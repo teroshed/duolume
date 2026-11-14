@@ -6,15 +6,15 @@ import type { TideContext } from '../contracts';
 import { WaterSurface } from './WaterSurface';
 
 export interface TideOptions {
-    /** Resting height of the water above the bottom of the stage, in px. Default `LEVEL` (70). */
+    /** Resting height of the water above the bottom of the stage, in px, 0..2000. Default `LEVEL` (70). */
     level?: number;
-    /** Most the rain can raise it above the resting level, in px. Default `MAX_RISE` (120). */
+    /** Most the rain can raise it above the resting level, in px, 0..2000. Default `MAX_RISE` (120). */
     maxRise?: number;
-    /** Pixels one landed raindrop adds to the level. Default `RISE_PER_DROP` (0.019): the default `Rain` fills `maxRise` in about 50 s. */
+    /** Pixels one landed raindrop (a point in `rain:landed`) adds to the level, 0..10. Default `RISE_PER_DROP` (0.019): the default `Rain` fills `maxRise` in about 50 s. */
     risePerDrop?: number;
-    /** How fast the raised water falls back to rest, in px per second. Default `DRAIN` (4). */
+    /** How fast the raised water falls back to rest, in px per second, 0..1000. Default `DRAIN` (4). */
     drain?: number;
-    /** Throw spray droplets on big splashes. Default true. */
+    /** Throw spray droplets on big splashes (the ring on the surface is drawn either way). Default true. */
     splashes?: boolean;
 }
 

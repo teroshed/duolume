@@ -19,11 +19,11 @@ export interface NebulaOptions {
     coverage?: number;
     /** How much cloud there is, 0..1, before the rain adds to it. Default 0.5 (`Nebula.DENSITY`). */
     density?: number;
-    /** Multiplier on how fast the cloud moves and changes shape. 0 = still. Default 1 (`Nebula.DRIFT`). */
+    /** Multiplier on how fast the cloud moves and changes shape, 0..20. 0 = still. Default 1 (`Nebula.DRIFT`). */
     drift?: number;
     /** True: the pointer carries a faint light through the cloud. Default true (`Nebula.POINTER_LIGHT`). */
     pointerLight?: boolean;
-    /** True: the cloud gathers while the `rain` effect is raining and clears afterwards. Default true (`Nebula.RAIN_THICKENS`). */
+    /** True: the cloud gathers in proportion to the droplets the `rain` effect has in the air (full at 600) and clears afterwards. Default true (`Nebula.RAIN_THICKENS`). */
     rainThickens?: boolean;
 }
 
@@ -35,11 +35,15 @@ export interface NebulaOptions {
  *
  * What it listens to:
  * - the force field, sampled across the sky: wind carries the cloud along
- * - the `rain` context: the cloud thickens while it rains and thins when the rain stops
- * - `lightning:strike`: near-white light at the end and the middle of the bolt, with one flicker
+ * - the `rain` context: the cloud thickens by up to 0.35 as its droplet count rises to 600, and
+ *   thins when the rain stops (option `rainThickens`)
+ * - `lightning:strike`: a light in the theme's ink colour at the end and the middle of the bolt,
+ *   with one flicker
  * - `firework:exploded`, `meteor:impact`, `crystal:exploded`, `rainEater:exploded`,
  *   `singularity:collapsed`, `fireflies:synced`: a coloured light where it happened
- * - the pointer: it carries a faint lantern through the cloud; a press brightens it briefly
+ * - the pointer: it carries a faint lantern through the cloud (option `pointerLight`); a press
+ *   (not on a button or link) brightens it briefly. The lights share a pool of six: a new one
+ *   takes the place of the weakest
  *
  * What it tells the others: the `nebula` context (how much cloud there is, how many lights are
  * glowing in it). It emits no events and adds no forces.

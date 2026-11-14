@@ -9,15 +9,15 @@ import { bodyFragment, lensFragment, QUAD_VERTEX } from './shaders';
 export interface SingularityOptions {
     /** Where it lives, as fractions of the stage width and height (0..1 each). Default `HOME` ({ x: 0.68, y: 0.36 }). */
     home?: { x: number; y: number };
-    /** Radius of the dark disc at zero mass, in pixels. Default `RADIUS` (26). */
+    /** Radius of the dark disc at zero mass, in pixels, 6..90 (it grows to 2.4 times that when full). Default `RADIUS` (26). */
     radius?: number;
-    /** Attraction strength, in px/ms². 0 = it bends light but moves nothing. Default `PULL` (0.0016). */
+    /** Attraction strength, in px/ms², 0..0.01. 0 = it bends light but moves nothing. Default `PULL` (0.0016). */
     pull?: number;
-    /** Swirl strength, in px/ms²; negative turns the other way. Default `SPIN` (0.0011). */
+    /** Swirl strength, in px/ms², -0.01..0.01; negative turns the other way. Default `SPIN` (0.0011). */
     spin?: number;
-    /** Grow by feeding and collapse when full. False keeps it at its starting size. Default true. */
+    /** Grow by feeding and collapse when full. False: nothing feeds it, it stays at its starting size and never collapses. Default true. */
     feed?: boolean;
-    /** Drift around its home. False keeps it there. Default true. */
+    /** Drift around its home on a slow loop (once round in 90 seconds). False keeps it there. Default true. */
     wander?: boolean;
 }
 
@@ -29,19 +29,22 @@ type Phase = 'forming' | 'whole' | 'imploding' | 'gone';
  * camera: a lens that looks through at the backdrop and the Pixi layer and bends them round a
  * dark disc, and on top the disc itself with its ring of light and a tilted band of gas.
  *
- * It pulls and swirls whatever samples the force field, feeds on what happens near it, and
- * slowly grows. When it has eaten too much it collapses in a flash and a shock ring, and after
- * a few seconds forms again somewhere else, small.
+ * It pulls and swirls whatever samples the force field and feeds on what happens near it. It
+ * grows as it feeds and shrinks back when nothing does. When it has eaten too much it collapses
+ * in a flash and a shock ring, and after four to six seconds forms again, small, at another
+ * point of its loop.
  *
  * What it listens to:
- *   - `rain` (a Pixi effect): droplets close to the disc fall in and feed it.
+ *   - the `rain` context: droplets close to the disc fall in and feed it.
  *   - `rainEater:exploded`, `crystal:exploded`, `meteor:impact`, `firework:exploded`,
- *     `lightning:strike`, `bubble:popped` events nearby: each feeds it, the big ones most.
- *   - a press on it feeds it by hand.
+ *     `lightning:strike`, `bubble:popped` events within 1.5 times its pull range (570 to 870 px):
+ *     each feeds it, the rain eater's burst and a big meteor most.
+ *   - a press on its disc feeds it by hand (not a press on a button or link).
  *   - the force field: shock rings and wind from the other effects nudge it off its path a little.
  *   - pixels: the lens shows the Pixi layer behind it, bent.
- * What it tells the others: its position, disc radius and mass; an attraction and a vortex
- * force; `singularity:collapsed`, a shock ring and a flash when it collapses.
+ * What it tells the others: its position, disc radius and mass, and whether it has collapsed
+ * (its context); an attraction and a vortex force while it exists; and when it collapses,
+ * `singularity:collapsed`, a shock ring and a flash.
  * Keys: `g` moves its home to the pointer.
  */
 export class Singularity extends Effect<SingularityContext> {

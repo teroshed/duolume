@@ -7,11 +7,11 @@ import type { ConstellationContext } from '../contracts';
 export interface ConstellationOptions {
     /** Points at full budget, 0..150. Default `COUNT` (90). */
     count?: number;
-    /** Two points closer than this (pixels) are joined by a line that fades out towards it. Default `LINK_DISTANCE` (165). */
+    /** Two points closer than this (pixels) are joined by a line that fades out towards it, 30..600. Default `LINK_DISTANCE` (165). */
     linkDistance?: number;
-    /** Let events anywhere in the scene run through the net as sparks. Default true. */
+    /** Let events and presses run through the net as sparks. False draws the net only. Default true. */
     signals?: boolean;
-    /** Treat the pointer as one more point: nearby points join it and drift gently towards it. Default true. */
+    /** Treat the pointer as one more point: points within 1.2 times `linkDistance` join it and drift gently towards it (never closer than 40 px). Default true. */
     pointerLinks?: boolean;
 }
 
@@ -42,6 +42,7 @@ const TAU = Math.PI * 2;
  *   - `lightning:strike`, `rainEater:exploded`, `singularity:collapsed`, `crystal:exploded`,
  *     `meteor:impact`, `firework:exploded`, `bubble:popped`, `flock:startled` and
  *     `fireflies:synced` events: each starts a signal at the point nearest to where it happened.
+ *     An event more than 300 px from every point starts nothing.
  *   - a press (not on a button or link): starts a signal at the point nearest to the pointer.
  *   - the pointer: it counts as one more point, and the points around it drift towards it.
  *   - the force field: wind and shock rings carry the points a little.
