@@ -29,8 +29,8 @@ function biggest(box: MiniBox): number {
 function blow(bubble: Bubble, box: MiniBox, anywhere: boolean): void {
     bubble.r = biggest(box) * randomNumber(0.55, 1);
     bubble.x = randomNumber(bubble.r, Math.max(bubble.r, box.w - bubble.r));
-    bubble.y = anywhere ? randomNumber(bubble.r, box.height) : box.height + bubble.r + randomNumber(1, 8);
-    bubble.rise = randomNumber(0.006, 0.011);
+    bubble.y = anywhere ? randomNumber(bubble.r, box.height) : box.height + bubble.r + randomNumber(0, 3);
+    bubble.rise = randomNumber(0.004, 0.007);
     bubble.popped = -1;
 }
 
@@ -72,7 +72,7 @@ export const bubbles: Mini<Bath> = {
             }
             b.wobble += dt * 0.0034;
             b.y -= dt * b.rise * (signal.hover ? 1.6 : 1);
-            b.x += dt * signal.wind * 0.014;
+            b.x += dt * signal.wind * 0.008;
             const dx = b.x - px;
             const dy = b.y - py;
             const d = Math.hypot(dx, dy) || 1;
@@ -80,10 +80,12 @@ export const bubbles: Mini<Bath> = {
                 b.x += (dx / d) * dt * 0.02;
                 b.y += (dy / d) * dt * 0.02;
             }
-            if (b.y < -b.r || b.x < -b.r - 2 || b.x > box.w + b.r + 2) {
+            if (b.y < -b.r) {
                 blow(b, box, false);
                 continue;
             }
+            // Blown out of one side, it comes in at the other.
+            b.x = b.x < -b.r ? box.w + b.r : b.x > box.w + b.r ? -b.r : b.x;
             // Which one pops: the nearest to a press, otherwise the biggest that is in view.
             const inView = b.y > b.r * 0.6 && b.y < box.height - b.r * 0.6;
             const score = signal.kick && signal.hover ? d : (inView ? 0 : 100) - b.r;
@@ -119,10 +121,14 @@ export const bubbles: Mini<Bath> = {
             g.circle(x, y, r).fill({ color: theme.accentAlt, alpha: 0.12 });
             g.circle(x, y, r).stroke({ width: 1, color: theme.accent, alpha: 0.9 });
             // The soap film's other colour down one side, and the window's reflection top left.
-            g.arc(x, y, r, -0.9, 0.9).stroke({ width: 1, color: theme.accentAlt, alpha: 0.95 });
+            g.moveTo(x + Math.cos(0.9) * r, y - Math.sin(0.9) * r)
+                .arc(x, y, r, -0.9, 0.9)
+                .stroke({ width: 1, color: theme.accentAlt, alpha: 0.95 });
             g.circle(x - r * 0.36, y - r * 0.38, Math.max(0.8, r * 0.22)).fill({ color: theme.ink, alpha: 0.95 });
             if (r > 4) {
-                g.arc(x, y, r * 0.62, 0.35, 1.1).stroke({ width: 1, color: theme.ink, alpha: 0.45 });
+                g.moveTo(x + Math.cos(0.35) * r * 0.62, y + Math.sin(0.35) * r * 0.62)
+                    .arc(x, y, r * 0.62, 0.35, 1.1)
+                    .stroke({ width: 1, color: theme.ink, alpha: 0.45 });
             }
         }
     },

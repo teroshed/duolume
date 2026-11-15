@@ -29,13 +29,13 @@ const SPLASH = 190;
 export const rain: Mini<Rain> = {
     create(box) {
         const drops: Drop[] = [];
-        const count = clamp(Math.round((box.w * box.height) / 105), 6, 40);
+        const count = clamp(Math.round((box.w * box.height) / 85), 6, 40);
         for (let i = 0; i < count; i++) {
             drops.push({
                 x: Math.random() * box.w,
                 y: Math.random() * box.height,
                 speed: 0.05 + Math.random() * 0.035,
-                length: 4.5 + Math.random() * 3.5,
+                length: 5 + Math.random() * 4,
                 alt: i % 3 === 1,
                 splash: 0,
                 splashX: 0,

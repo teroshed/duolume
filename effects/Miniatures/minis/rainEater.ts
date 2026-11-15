@@ -31,18 +31,18 @@ interface Eater {
     seed: number;
 }
 
-const SIDES = 6;
+const SIDES = 7;
 const BURST = 1300;
 
 export const rainEater: Mini<Eater> = {
     create(box) {
         const drops: Drop[] = [];
-        const count = clamp(Math.round((box.w * box.height) / 150), 6, 30);
+        const count = clamp(Math.round((box.w * box.height) / 105), 8, 32);
         for (let i = 0; i < count; i++) {
             const speed = 0.04 + Math.random() * 0.025;
             drops.push({ x: Math.random() * box.w, y: Math.random() * box.height, vx: 0, vy: speed, speed, alt: i % 3 === 1 });
         }
-        const radius = clamp(box.height * 0.25, 5, 13);
+        const radius = clamp(box.height * 0.22, 5, 16);
         return { drops, x: box.w / 2, y: box.height / 2, radius, spin: Math.random() * 6, energy: 0.3, gulp: 0, burst: -1, seed: Math.random() * 6 };
     },
 
@@ -62,7 +62,7 @@ export const rainEater: Mini<Eater> = {
         }
 
         const whole = state.burst < 0;
-        const reach = state.radius * 2.7;
+        const reach = state.radius * 2.3;
         for (const drop of state.drops) {
             // Left alone a droplet settles back into a plain fall, leaning with the wind.
             drop.vx = approach(drop.vx, signal.wind * drop.speed * 1.2, 5, dt);
@@ -79,7 +79,7 @@ export const rainEater: Mini<Eater> = {
             drop.y += drop.vy * dt;
             const eaten = whole && distance < state.radius * 0.75;
             if (eaten) {
-                state.energy += 0.035;
+                state.energy += 0.022;
                 state.gulp = Math.max(state.gulp, 0.6);
             }
             if (eaten || drop.y > box.height + 2 || drop.y < -box.height) {
@@ -120,11 +120,11 @@ export const rainEater: Mini<Eater> = {
                     continue;
                 }
                 const speed = Math.hypot(drop.vx, drop.vy) || 1;
-                g.moveTo(box.x + drop.x - (drop.vx / speed) * 4.5, drop.y - (drop.vy / speed) * 4.5).lineTo(box.x + drop.x, drop.y);
+                g.moveTo(box.x + drop.x - (drop.vx / speed) * 5.5, drop.y - (drop.vy / speed) * 5.5).lineTo(box.x + drop.x, drop.y);
                 any = true;
             }
             if (any) {
-                g.stroke({ width: 1, color: pass === 1 ? theme.accentAlt : theme.accent, alpha: 0.8 });
+                g.stroke({ width: 1, color: pass === 1 ? theme.accentAlt : theme.accent, alpha: 0.9 });
             }
         }
 
@@ -150,8 +150,8 @@ export const rainEater: Mini<Eater> = {
                 .lineTo(ox + Math.cos(a0) * radius, oy + Math.sin(a0) * radius)
                 .lineTo(ox + Math.cos(a1) * radius, oy + Math.sin(a1) * radius)
                 .closePath()
-                .fill({ color: mixColor(theme.accentAlt, theme.accent, lit), alpha: clamp((0.12 + 0.3 * lit) * glass, 0, 0.6) })
-                .stroke({ width: 1, color: mixColor(theme.accent, theme.ink, 0.55), alpha: 0.9 });
+                .fill({ color: i % 2 === 0 ? theme.accent : theme.accentAlt, alpha: clamp((0.2 + 0.3 * lit) * glass, 0, 0.62) })
+                .stroke({ width: 1, color: mixColor(theme.accent, theme.ink, 0.3), alpha: 0.85 });
         }
         // The ring of the burst.
         if (p > 0 && p < 0.25) {

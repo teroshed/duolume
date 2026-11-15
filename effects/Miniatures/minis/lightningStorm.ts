@@ -7,15 +7,17 @@ import type { Mini, MiniBox } from '../Mini';
  * next charge builds somewhere else. It strikes when the real storm does, and when pressed.
  */
 interface Bolt {
-    /** The bolt's joints from top to floor, as sideways positions in pixels of the knob-free part. */
-    joints: number[];
-    /** Which joint the fork leaves from, and which way it goes (pixels). */
+    /** The bolt's joints from sky to floor: sideways in pixels of the knob-free part, and 0..1 down. */
+    xs: number[];
+    ys: number[];
+    /** Which way it leans (-1 left, 1 right), and the joint its fork leaves from. */
+    lean: number;
     forkAt: number;
-    forkReach: number;
-    /** 1 at the strike, cooling to 0. */
+    /** 1 at the strike, cooling to 0, and the milliseconds since. */
     heat: number;
-    /** Milliseconds since the strike. */
     age: number;
+    /** 1 at the strike, gone in a few frames: the element lights up. */
+    flash: number;
     /** 0..1: the charge building for the next strike, where it sits, and how long it takes (ms). */
     charge: number;
     foot: number;
@@ -24,98 +26,107 @@ interface Bolt {
     stray: number;
 }
 
-interface Storm {
-    bolts: Bolt[];
-    /** 1 at a strike, gone in a few frames: the whole element lights up. */
-    flash: number;
+function jagOf(box: MiniBox): number {
+    return clamp(box.height * 0.15, 3, 9);
 }
 
-function strike(bolt: Bolt, state: Storm, box: MiniBox): void {
-    const last = bolt.joints.length - 1;
-    const jag = clamp(box.height * 0.13, 2.5, 8);
-    const top = bolt.foot + (Math.random() - 0.5) * jag * 3;
+/** Bring a bolt down on its charge, then start the next charge somewhere else in its lane. */
+function strike(bolt: Bolt, box: MiniBox): void {
+    const last = bolt.xs.length - 1;
+    const jag = jagOf(box);
+    bolt.lean = Math.random() < 0.5 ? -1 : 1;
+    const top = bolt.foot - bolt.lean * jag * Math.random() * 1.2;
+    // Long strokes down and to one side, each followed by a short step back: the shape of a bolt.
+    let down = 0;
     for (let i = 0; i <= last; i++) {
-        // Straight from the sky to the charge, thrown left and right on the way.
-        const side = i === 0 || i === last ? 0 : (i % 2 === 0 ? 1 : -1) * jag * (0.5 + Math.random() * 0.7);
-        bolt.joints[i] = top + (bolt.foot - top) * (i / last) + side;
+        const side = i === 0 || i === last ? 0 : (i % 2 === 1 ? 1 : -1) * bolt.lean * jag * (0.4 + Math.random() * 0.75);
+        bolt.xs[i] = top + (bolt.foot - top) * (i / last) + side;
+        bolt.ys[i] = down;
+        down += i % 2 === 0 ? 0.6 + Math.random() * 0.8 : 0.12 + Math.random() * 0.2;
     }
-    bolt.forkAt = 1 + Math.floor(Math.random() * (last - 2));
-    bolt.forkReach = (Math.random() < 0.5 ? -1 : 1) * jag * (1.2 + Math.random());
+    for (let i = 0; i <= last; i++) {
+        bolt.ys[i] /= bolt.ys[last];
+    }
+    bolt.forkAt = 1 + 2 * Math.floor(Math.random() * ((last - 1) / 2));
     bolt.heat = 1;
     bolt.age = 0;
     bolt.charge = 0;
-    bolt.foot = clamp(bolt.lane + (Math.random() - 0.5) * 2 * bolt.stray, 4, box.w - 3);
-    bolt.period = 2000 + Math.random() * 1400;
-    state.flash = 1;
+    bolt.foot = clamp(bolt.lane + (Math.random() - 0.5) * 2 * bolt.stray, 5, box.w - 3);
+    bolt.period = 1300 + Math.random() * 1000;
+    bolt.flash = 1;
 }
 
-export const lightningStorm: Mini<Storm> = {
+export const lightningStorm: Mini<Bolt[]> = {
     create(box) {
-        const state: Storm = { bolts: [], flash: 0 };
+        const bolts: Bolt[] = [];
         const count = clamp(Math.round(box.w / 60), 1, 4);
-        const joints = clamp(Math.round(box.height / 5), 4, 9);
+        // An odd number of strokes, so that it begins and ends with a long one.
+        const strokes = clamp(2 * Math.round(box.height / 20) + 1, 5, 7);
         for (let i = 0; i < count; i++) {
             const lane = ((i + 0.5) / count) * box.w;
-            const bolt: Bolt = { joints: new Array<number>(joints + 1).fill(lane), forkAt: 1, forkReach: 0, heat: 0, age: 0, charge: 0, foot: lane, period: 2400, lane, stray: (box.w / count) * 0.36 };
+            const bolt: Bolt = { xs: new Array<number>(strokes + 1).fill(lane), ys: new Array<number>(strokes + 1).fill(0), lean: 1, forkAt: 1, heat: 0, age: 0, flash: 0, charge: 0, foot: lane, period: 2000, lane, stray: (box.w / count) * 0.3 };
             // It starts with a trace already there, cooled, and the charge part of the way up.
-            strike(bolt, state, box);
+            strike(bolt, box);
             bolt.heat = 0;
+            bolt.flash = 0;
             bolt.age = 1000;
-            bolt.charge = 0.35 + (i / count) * 0.5;
-            state.bolts.push(bolt);
+            bolt.charge = 0.4 + (i / count) * 0.5;
+            bolts.push(bolt);
         }
-        state.flash = 0;
-        return state;
+        return bolts;
     },
 
-    tick(state, box, signal) {
-        state.flash = Math.max(0, state.flash - signal.dt / 110);
-        let fullest = state.bolts[0];
-        for (const bolt of state.bolts) {
+    tick(bolts, box, signal) {
+        let fullest = bolts[0];
+        for (const bolt of bolts) {
             bolt.age += signal.dt;
-            bolt.heat *= Math.exp(-signal.dt / 260);
-            bolt.charge += (signal.dt / bolt.period) * (signal.hover ? 3 : 1);
+            bolt.flash = Math.max(0, bolt.flash - signal.dt / 110);
+            bolt.heat *= Math.exp(-signal.dt / 380);
+            bolt.charge += (signal.dt / bolt.period) * (signal.hover ? 2.5 : 1);
             if (bolt.charge > fullest.charge) {
                 fullest = bolt;
             }
         }
-        for (const bolt of state.bolts) {
+        for (const bolt of bolts) {
             // Its own rhythm; the real storm striking (the fullest one answers); a press (they all do).
             if (bolt.charge >= 1 || signal.kick || (signal.pulse > 0 && bolt === fullest)) {
-                strike(bolt, state, box);
+                strike(bolt, box);
             }
         }
     },
 
-    draw(g, state, box, theme) {
+    draw(g, bolts, box, theme) {
         const floor = box.height - 3;
-        if (state.flash > 0.02) {
-            g.rect(box.x, 0, box.w, box.height).fill({ color: theme.ink, alpha: 0.15 * state.flash });
+        const jag = jagOf(box);
+        // The flash: the whole inside lights up for a moment, more faintly the more bolts share it.
+        let flash = 0;
+        for (const bolt of bolts) {
+            flash = Math.max(flash, bolt.flash);
         }
-        for (const bolt of state.bolts) {
-            const last = bolt.joints.length - 1;
+        if (flash > 0.02) {
+            g.rect(0, 0, box.width, box.height).fill({ color: theme.ink, alpha: (0.13 * flash) / Math.sqrt(bolts.length) });
+        }
+        for (const bolt of bolts) {
+            const last = bolt.xs.length - 1;
             // A flicker just after the strike: bright, almost out, bright again.
-            const flicker = bolt.age > 60 && bolt.age < 110 ? 0.25 : 1;
-            const heat = bolt.heat * flicker;
+            const heat = bolt.heat * (bolt.age > 70 && bolt.age < 120 ? 0.25 : 1);
             for (let i = 0; i <= last; i++) {
-                const x = box.x + bolt.joints[i];
-                const y = 1 + (floor - 1) * (i / last);
                 if (i === 0) {
-                    g.moveTo(x, y);
+                    g.moveTo(box.x + bolt.xs[i], 1);
                 } else {
-                    g.lineTo(x, y);
+                    g.lineTo(box.x + bolt.xs[i], 1 + (floor - 1) * bolt.ys[i]);
                 }
             }
-            // The fork: two short strokes off to one side.
-            const fx = box.x + bolt.joints[bolt.forkAt];
-            const fy = 1 + (floor - 1) * (bolt.forkAt / last);
-            const step = (floor - 1) / last;
-            g.moveTo(fx, fy).lineTo(fx + bolt.forkReach * 0.6, fy + step * 0.7).lineTo(fx + bolt.forkReach, fy + step * 1.6);
-            g.stroke({ width: 1 + heat * 0.8, color: mixColor(theme.accentAlt, theme.ink, clamp(heat * 1.5, 0, 1)), alpha: 0.26 + 0.74 * heat });
-            // Where it landed: a small star, while it is hot.
+            // The fork: two short strokes that carry on outward from a corner.
+            const fx = box.x + bolt.xs[bolt.forkAt];
+            const fy = 1 + (floor - 1) * bolt.ys[bolt.forkAt];
+            g.moveTo(fx, fy).lineTo(fx + bolt.lean * jag * 0.8, fy + jag * 0.5).lineTo(fx + bolt.lean * jag * 0.9, fy + jag * 1.3);
+            g.stroke({ width: 1 + heat, color: mixColor(theme.accentAlt, theme.ink, clamp(heat * 1.6, 0, 1)), alpha: 0.24 + 0.76 * heat });
+            // Where it landed: a small spark, while it is hot.
             if (heat > 0.15) {
-                const lx = box.x + bolt.joints[last];
-                g.moveTo(lx - 3.5 * heat, floor).lineTo(lx + 3.5 * heat, floor).moveTo(lx - 2 * heat, floor - 2.5 * heat).lineTo(lx + 2 * heat, floor + 1.5).stroke({ width: 1, color: theme.ink, alpha: heat });
+                const lx = box.x + bolt.xs[last];
+                g.moveTo(lx - 4 * heat, floor).lineTo(lx + 4 * heat, floor).moveTo(lx - 2.5 * heat, floor - 3 * heat).lineTo(lx + 2.5 * heat, floor + 1);
+                g.stroke({ width: 1, color: theme.ink, alpha: heat });
             }
             // The charge building for the next one.
             const charge = clamp(bolt.charge, 0, 1);

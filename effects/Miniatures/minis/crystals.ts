@@ -42,14 +42,14 @@ function shatter(state: Crystals): void {
 export const crystals: Mini<Crystals> = {
     create(box) {
         const list: Crystal[] = [];
-        const count = clamp(Math.round((box.w * box.height) / 520), 2, 7);
+        const count = clamp(Math.round((box.w * box.height) / 700), 2, 7);
         const size = clamp(box.height * 0.2, 4.5, 12);
         for (let i = 0; i < count; i++) {
             // Spread along the element, alternately high and low, alternately large and small.
             const radius = size * (i % 2 === 0 ? 1.1 : 0.72) * (0.92 + Math.random() * 0.16);
             const high = i % 2 === 0 ? 0.42 : 0.62;
             list.push({
-                x: clamp(((i + 0.5) / count) * box.w + (i % 2 === 0 ? -1 : 1) * box.w * 0.04, radius + 2, box.w - radius),
+                x: clamp(((i + 0.5) / count) * box.w + (i % 2 === 0 ? 1 : 2) * box.w * 0.03, radius + 4, box.w - radius),
                 y: clamp(box.height * (high + (Math.random() - 0.5) * 0.1), radius + 2, box.height - radius - 2),
                 radius,
                 sides: 4 + ((i * 2 + 2) % 3),
@@ -83,7 +83,7 @@ export const crystals: Mini<Crystals> = {
     },
 
     draw(g, state, box, theme, signal) {
-        const wire = mixColor(theme.accent, theme.ink, 0.55);
+        const wire = mixColor(theme.accent, theme.ink, 0.35);
         for (const crystal of state.list) {
             const p = crystal.broken < 0 ? 0 : crystal.broken / SHATTER;
             // Shattered: out fast, hang a moment, then home.
@@ -109,7 +109,7 @@ export const crystals: Mini<Crystals> = {
                     .lineTo(ox + Math.cos(a1) * rx, oy + Math.sin(a1) * ry)
                     .closePath()
                     .fill({ color: theme.accent, alpha: 0.08 + 0.26 * lit })
-                    .stroke({ width: 1, color: wire, alpha: 0.9 });
+                    .stroke({ width: 1, color: wire, alpha: 0.85 });
             }
         }
     },

@@ -17,17 +17,15 @@ interface Shell {
     /** Which colour, and how the rays are turned. */
     tone: number;
     turn: number;
-    /** The middle of its lane and how far it may stray from it. */
-    lane: number;
-    stray: number;
 }
 
-const RAYS = 10;
+const RAYS = 12;
 const BURST = 800;
 
-/** Send a shell up (or, with `open`, straight into its burst) at a new place in its lane. */
+/** Send a shell up (or, with `open`, straight into its burst) somewhere new along the element. */
 function launch(shell: Shell, box: MiniBox, open: boolean): void {
-    shell.x = shell.lane + (Math.random() - 0.5) * 2 * shell.stray;
+    const edge = Math.min(shell.radius * 0.8 + 2, box.w / 2);
+    shell.x = edge + Math.random() * (box.w - edge * 2);
     shell.y = box.height * (0.36 + Math.random() * 0.1);
     shell.rise = 420 + Math.random() * 160;
     shell.age = open ? shell.rise : 0;
@@ -38,11 +36,11 @@ function launch(shell: Shell, box: MiniBox, open: boolean): void {
 export const fireworks: Mini<Shell[]> = {
     create(box) {
         const shells: Shell[] = [];
-        const count = clamp(Math.round(box.w / 45), 1, 5);
-        const radius = Math.min(box.height * 0.36, (box.w / count) * 0.42, 16);
+        // One more than fits side by side: while one burst fades, the next stem is already climbing.
+        const count = clamp(Math.round(box.w / 45), 1, 5) + 1;
+        const radius = Math.min(box.height * 0.34, box.w * 0.32, 22);
         for (let i = 0; i < count; i++) {
-            const lane = ((i + 0.5) / count) * box.w;
-            shells.push({ x: lane, y: box.height * 0.4, radius, age: -150 - i * 380, rise: 500, tone: i, turn: 0, lane, stray: Math.max(0, box.w / count / 2 - radius) });
+            shells.push({ x: box.w / 2, y: box.height * 0.4, radius, age: -100 - (i / count) * 1500, rise: 500, tone: i, turn: 0 });
         }
         return shells;
     },
@@ -73,7 +71,7 @@ export const fireworks: Mini<Shell[]> = {
             if (before < 0 && shell.age >= 0) {
                 launch(shell, box, false);
             } else if (shell.age > shell.rise + BURST) {
-                shell.age = -(150 + Math.random() * 500);
+                shell.age = -(100 + Math.random() * 300);
             }
         }
     },
@@ -84,7 +82,7 @@ export const fireworks: Mini<Shell[]> = {
             if (shell.age < 0) {
                 continue;
             }
-            const color = shell.tone === 0 ? theme.accent : shell.tone === 1 ? theme.accentAlt : mixColor(theme.ink, theme.accent, 0.25);
+            const color = shell.tone === 0 ? theme.accent : shell.tone === 1 ? theme.accentAlt : mixColor(theme.ink, theme.accentAlt, 0.2);
             if (shell.age < shell.rise) {
                 // The stem: a bright head climbing, slowing, with a fading tail below it. It leans with the wind.
                 const climb = 1 - (1 - shell.age / shell.rise) ** 2;
@@ -95,20 +93,24 @@ export const fireworks: Mini<Shell[]> = {
                 g.rect(x - 1, y - 1, 2, 3).fill({ color: theme.ink, alpha: 1 });
                 continue;
             }
-            // The burst: rays that fly out fast and slow down, shorten to sparks, and sag as they fade.
+            // The burst: rays that fly out fast and slow down, let go of the middle, and droop as they fade.
             const p = (shell.age - shell.rise) / BURST;
-            const out = shell.radius * (1 - (1 - p) ** 3);
-            const inner = out * (0.35 + 0.6 * p);
+            const out = shell.radius * (1 - (1 - p) ** 4);
+            const inner = out * (0.12 + 0.6 * p * p);
+            const droop = p * p * shell.radius * 0.6;
             const cx = box.x + shell.x + signal.wind * (5 + 6 * p);
-            const cy = shell.y + p * p * shell.radius * 0.45;
+            const cy = shell.y;
             for (let i = 0; i < RAYS; i++) {
                 const angle = shell.turn + (i / RAYS) * Math.PI * 2;
                 // Every other ray is shorter, so the burst reads as a star and not as a wheel.
-                const far = i % 2 === 0 ? out : out * 0.72;
+                const far = i % 2 === 0 ? out : out * 0.68;
                 const near = Math.max(0, Math.min(inner, far - 1));
-                g.moveTo(cx + Math.cos(angle) * near, cy + Math.sin(angle) * near).lineTo(cx + Math.cos(angle) * far, cy + Math.sin(angle) * far);
+                const half = (near + far) / 2;
+                g.moveTo(cx + Math.cos(angle) * near, cy + Math.sin(angle) * near + droop * 0.2)
+                    .lineTo(cx + Math.cos(angle) * half, cy + Math.sin(angle) * half + droop * 0.5)
+                    .lineTo(cx + Math.cos(angle) * far, cy + Math.sin(angle) * far + droop);
             }
-            g.stroke({ width: 1.3, color, alpha: 1 - p ** 2.5 });
+            g.stroke({ width: 1.4, color, alpha: 1 - p * p });
             if (p < 0.15) {
                 g.circle(cx, cy, 1.6).fill({ color: theme.ink, alpha: 1 - p / 0.15 });
             }

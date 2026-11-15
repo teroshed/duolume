@@ -31,9 +31,9 @@ interface Aurora {
 function shape(ribbon: Ribbon, u: number, box: MiniBox, swell: number, level: number, out: { y: number; half: number }): void {
     const angle = u * ribbon.waves * Math.PI * 2 - ribbon.phase;
     const bump = Math.exp(-(((u - swell) / 0.14) ** 2));
-    const thick = clamp(box.height * 0.085, 1.6, 4.5);
+    const thick = clamp(box.height * 0.06, 1.5, 3.6);
     out.y = box.height * (ribbon.v + ribbon.swing * (0.45 + 0.55 * level) * (Math.sin(angle) + 0.3 * Math.sin(angle * 0.47 + 1.3))) - bump * box.height * 0.08;
-    out.half = thick * (0.3 + 0.7 * Math.abs(Math.sin(angle * 0.5 + ribbon.tone * 2))) + bump * thick * 0.9;
+    out.half = thick * (0.22 + 0.78 * Math.abs(Math.sin(angle * 0.5 + ribbon.tone * 2))) + bump * thick * 0.9;
 }
 
 const at = { y: 0, half: 0 };
@@ -41,12 +41,13 @@ const at = { y: 0, half: 0 };
 export const auroraRibbons: Mini<Aurora> = {
     create(box) {
         const ribbons: Ribbon[] = [];
-        const count = clamp(Math.round(box.height / 22), 2, 4);
+        const count = clamp(Math.round(box.height / 14), 3, 5);
         for (let i = 0; i < count; i++) {
             ribbons.push({
-                v: (i + 0.5) / count + (Math.random() - 0.5) * 0.08,
-                swing: (0.24 + Math.random() * 0.08) / Math.sqrt(count),
-                waves: Math.max(0.85, box.w / 62) * (0.8 + Math.random() * 0.5),
+                v: 0.5 + ((i + 0.5) / count - 0.5) * 0.62,
+                swing: 0.5 / count + 0.07 + Math.random() * 0.04,
+                // A wave is about one and a half times as long as the element is high: taller elements get slower curves.
+                waves: Math.max(0.8, box.w / Math.max(44, box.height * 1.6)) * (0.8 + 0.2 * i + Math.random() * 0.2),
                 phase: Math.random() * Math.PI * 2,
                 speed: (0.0011 + Math.random() * 0.0007) * (i % 2 === 0 ? 1 : -0.7),
                 tone: count === 1 ? 0 : i / (count - 1),
@@ -70,9 +71,9 @@ export const auroraRibbons: Mini<Aurora> = {
     },
 
     draw(g, state, box, theme, signal) {
-        const steps = clamp(Math.round(box.w / 3), 10, 44);
+        const steps = clamp(Math.round(box.w / 3), 10, 56);
         // A switch shows them plainly; behind the words of a field or a button they stay quieter.
-        const strength = box.w < box.width || box.height > 60 ? 1 : 0.6;
+        const strength = box.w < box.width || box.height > 60 ? 1 : 0.45;
         // Switching on, the ribbons unroll from the left.
         const reach = Math.min(1, signal.presence * 1.1);
         for (const ribbon of state.ribbons) {
@@ -92,7 +93,7 @@ export const auroraRibbons: Mini<Aurora> = {
                 shape(ribbon, u, box, state.swell, signal.level, at);
                 g.lineTo(box.x + u * box.w, at.y + at.half);
             }
-            g.closePath().fill({ color, alpha: 0.5 * strength });
+            g.closePath().fill({ color, alpha: 0.7 * strength });
             // Its bright upper edge.
             for (let i = 0; i <= steps; i++) {
                 const u = (i / steps) * reach;

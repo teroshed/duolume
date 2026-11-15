@@ -42,9 +42,9 @@ export const wind: Mini<Wind> = {
             streaks.push({
                 u: Math.random() * 1.6 - 0.3,
                 v: (i + 0.5) / lanes + (Math.random() - 0.5) * (0.3 / lanes),
-                length: clamp(box.w * 0.45, 12, 26) * (0.75 + Math.random() * 0.5),
+                length: clamp(box.w * 0.6, 14, 30) * (0.75 + Math.random() * 0.5),
                 pace: (0.011 + Math.random() * 0.006) / Math.max(box.w, 24),
-                curl: i % 2 === 0 ? -1 : 1,
+                curl: (i + 0.5) / lanes < 0.6 ? -1 : 1,
             });
         }
         for (let i = 0; i < clamp(Math.round(area / 420), 2, 10); i++) {
@@ -53,7 +53,7 @@ export const wind: Mini<Wind> = {
         return { streaks, specks, flow: 0.35 };
     },
 
-    tick(state, _box, signal) {
+    tick(state, box, signal) {
         // Natural gusts are a seventh of a hand-blown wind: the square root lets them show.
         const strength = Math.sqrt(Math.abs(signal.wind));
         const target = (signal.wind < -0.015 ? -1 : 1) * (0.35 + 1.65 * strength) * (signal.hover ? 1.6 : 1);
@@ -64,10 +64,12 @@ export const wind: Mini<Wind> = {
         }
         for (const streak of state.streaks) {
             streak.u += state.flow * streak.pace * signal.dt;
-            if (streak.u > 1.7) {
-                streak.u -= 2.2;
-            } else if (streak.u < -0.7) {
-                streak.u += 2.2;
+            // Past the far end with its whole length, it comes in again at the near end.
+            const span = streak.length / Math.max(box.w, 24);
+            if (streak.u > 1.15 + span) {
+                streak.u = -0.15;
+            } else if (streak.u < -0.15 - span) {
+                streak.u = 1.15;
             }
         }
         for (const speck of state.specks) {
@@ -88,9 +90,9 @@ export const wind: Mini<Wind> = {
         const force = clamp(Math.abs(state.flow) / 2, 0, 1.3);
         // A switch shows it plainly; behind the words of a field or a button it stays quieter.
         const quiet = box.w < box.width || box.height > 60 ? 1 : 0.65;
-        const curl = clamp(box.height * 0.085, 2, 3.4);
+        const curl = clamp(box.height * 0.1, 2.2, 3.6);
         for (const streak of state.streaks) {
-            const length = streak.length * (0.45 + 0.55 * force) * signal.presence;
+            const length = streak.length * (0.65 + 0.5 * force) * signal.presence;
             const hx = box.x + streak.u * box.w;
             const hy = clamp(streak.v * box.height, curl * 2 + 2, box.height - curl * 2 - 2);
             // From the tail to the head, with a slow wave in it.
@@ -109,7 +111,7 @@ export const wind: Mini<Wind> = {
                 const angle = (i / 7) * Math.PI * 1.45;
                 g.lineTo(hx + way * Math.sin(angle) * curl, cy - streak.curl * Math.cos(angle) * curl);
             }
-            g.stroke({ width: 1, color: mixColor(theme.ink, theme.accent, 0.3), alpha: (0.5 + 0.4 * force) * quiet });
+            g.stroke({ width: 1, color: mixColor(theme.ink, theme.accent, 0.3), alpha: Math.min(1, 0.62 + 0.33 * force) * quiet });
         }
         // The dust: small diamonds that bob as they are carried.
         for (const speck of state.specks) {
