@@ -20,6 +20,8 @@ interface Beat {
     start: number;
     amp: number;
     startled: boolean;
+    /** How much longer than normal the complex is stretched (narrow elements). */
+    scale: number;
 }
 
 /** What the effect keeps for one element. */
@@ -42,6 +44,12 @@ interface Trace {
 }
 
 const NEVER = -1e9;
+/** Free widths under this many px are narrow: one beat per crossing of the sweep (a switch). */
+const NARROW = 80;
+/** Where in a narrow crossing the beat starts, as a share of the width. */
+const BEAT_AT = 0.25;
+/** Share of a narrow crossing one complex fills. */
+const FILL = 0.65;
 /** How long the flattening after switching off takes, ms. */
 const FLATTEN = 700;
 /** Age bands the line is drawn in: one stroke each. */
@@ -133,32 +141,42 @@ export class Pulse extends Effect<PulseContext> {
                 }
             }
 
+            const narrow = field.freeWidth < NARROW;
+            // Narrow: the complex fills most of a crossing. Text, button and bar: stretched so each beat is a clear, larger shape.
+            const scale = narrow ? (bpm > 0 ? (Pulse.crossing(bpm) * FILL) / BEAT_DURATION : 1) : field.height < 60 && bpm > 0 ? clamp(60000 / (bpm * BEAT_DURATION * 1.25), 1, 1.8) : 1;
             if (field.turnedOn) {
-                this.beat(trace, now, 1.35, false);
+                this.beat(trace, now, 1.35, false, scale);
                 trace.rhythm.restart();
             } else if (field.pressed && field.active) {
-                this.beat(trace, now, 1.7, false);
+                this.beat(trace, now, 1.7, false, scale);
                 trace.rhythm.restart();
-            } else if (trace.rhythm.step(dt, bpm, irregularity)) {
-                this.beat(trace, now, 1, false);
+            } else if (!narrow && trace.rhythm.step(dt, bpm, irregularity)) {
+                this.beat(trace, now, 1, false, scale);
             }
             if (startled && field.active) {
-                this.beat(trace, now, 1.5, true);
+                this.beat(trace, now, 1.5, true, 1);
             }
             if (field.turnedOff) {
                 // The beat in progress finishes, then one long flattening.
-                const rest = trace.beats[0].start + BEAT_DURATION - now;
+                const rest = trace.beats[0].start + BEAT_DURATION * trace.beats[0].scale - now;
                 trace.flatAt = now + Math.max(0, rest);
             }
 
             // The sweep: write the signal at the head, one sample per `spacing` px travelled.
-            trace.travelled += this.sweep * dt;
+            // A narrow element: the sweep itself sets the tempo, one crossing per beat.
+            const speed = narrow ? (field.freeWidth / Pulse.crossing(bpm > 0 ? bpm : this.rate * 0.6)) * (this.sweep / Pulse.SWEEP) : this.sweep;
+            trace.travelled += speed * dt;
             let steps = 0;
             while (trace.travelled >= trace.spacing && steps < trace.samples.length) {
                 trace.travelled -= trace.spacing;
                 steps++;
                 trace.head = (trace.head + 1) % trace.samples.length;
                 trace.samples[trace.head] = this.signal(trace, field, now);
+                if (narrow && field.active && trace.head === Math.round(trace.samples.length * BEAT_AT)) {
+                    if (!(words.invalid && Math.random() < 0.3)) {
+                        this.beat(trace, now, words.invalid ? 0.6 + Math.random() * 0.8 : 1, false, scale);
+                    }
+                }
             }
             if (steps >= trace.samples.length) {
                 trace.travelled = 0;
@@ -184,7 +202,7 @@ export class Pulse extends Effect<PulseContext> {
             if (n < 3) {
                 continue;
             }
-            const { base, low } = Pulse.layout(field);
+            const { base, low, narrow } = Pulse.layout(field);
             // Off is a visible, dim flatline; disabled is dimmer; in text the trace stays quiet.
             const bright = (field.words.disabled ? 0.22 : lerp(0.4, 1, field.presence)) * (low ? 0.8 : 1);
             let colour = mixColor(theme.accent, theme.accentAlt, trace.busyMix);
@@ -207,7 +225,7 @@ export class Pulse extends Effect<PulseContext> {
                 const b = Math.min(BANDS - 1, Math.floor((j / shown) * BANDS));
                 if (b !== band) {
                     if (band >= 0) {
-                        g.stroke({ width: band === 0 ? 1.5 : 1, color: colour, alpha: bright * (1 - 0.8 * ((band + 0.5) / BANDS)) });
+                        g.stroke({ width: narrow || band === 0 ? 1.5 : 1, color: colour, alpha: bright * (1 - (narrow ? 0.6 : 0.8) * ((band + 0.5) / BANDS)) });
                     }
                     band = b;
                     g.moveTo(prevI >= 0 && Math.abs(prevI - i) === 1 ? prevX : x, prevI >= 0 && Math.abs(prevI - i) === 1 ? prevY : y);
@@ -224,7 +242,7 @@ export class Pulse extends Effect<PulseContext> {
                 prevI = i;
             }
             if (band >= 0) {
-                g.stroke({ width: band === 0 ? 1.5 : 1, color: colour, alpha: bright * (1 - 0.8 * ((band + 0.5) / BANDS)) });
+                g.stroke({ width: narrow || band === 0 ? 1.5 : 1, color: colour, alpha: bright * (1 - (narrow ? 0.6 : 0.8) * ((band + 0.5) / BANDS)) });
             }
             // The bright dot at the sweep head.
             g.circle(xOf(head), base - trace.samples[head], 1).fill({ color: mixColor(colour, theme.ink, 0.5), alpha: bright });
@@ -251,8 +269,8 @@ export class Pulse extends Effect<PulseContext> {
             travelled: 0,
             rhythm: new Rhythm(),
             beats: [
-                { start: NEVER, amp: 1, startled: false },
-                { start: NEVER, amp: 1, startled: false },
+                { start: NEVER, amp: 1, startled: false, scale: 1 },
+                { start: NEVER, amp: 1, startled: false, scale: 1 },
             ],
             flatAt: NEVER,
             busyMix: 0,
@@ -265,15 +283,19 @@ export class Pulse extends Effect<PulseContext> {
      * Where the baseline sits and how far a spike may go. In a switch, a bar or a pad it is the
      * middle; in a text field or a button the lower third, with a short spike up and room below.
      */
-    private static layout(field: Field<Trace>): { base: number; up: number; down: number; low: boolean } {
+    private static layout(field: Field<Trace>): { base: number; up: number; down: number; low: boolean; narrow: boolean } {
         const h = field.height;
-        const low = !field.words.knob && field.words.value === undefined && h < 60;
+        const narrow = field.freeWidth < NARROW;
+        const low = !narrow && !field.words.knob && field.words.value === undefined && h < 60;
         if (low) {
-            const base = h * 0.8;
-            return { base, up: Math.max(2, h * 0.2 - 1), down: Math.max(2, h - base - 3), low };
+            const base = h * 0.84;
+            return { base, up: Math.max(3, h * 0.25), down: Math.max(2, h - base - 2), low, narrow };
         }
         const half = Math.max(2, h / 2 - 2.5);
-        return { base: h / 2, up: half * 0.7, down: half * 0.7, low };
+        if (narrow) {
+            return { base: h / 2, up: half * 0.95, down: half * 0.95, low, narrow };
+        }
+        return { base: h / 2, up: half * (field.words.value !== undefined ? 0.95 : 0.7), down: half * 0.7, low, narrow };
     }
 
     /** Size the ring to the free width, starting afresh when that changes. */
@@ -291,14 +313,21 @@ export class Pulse extends Effect<PulseContext> {
         }
     }
 
-    private beat(trace: Trace, now: number, amp: number, startled: boolean): void {
+    /** Milliseconds one crossing takes for a narrow element beating at `bpm`. */
+    private static crossing(bpm: number): number {
+        return 60000 / Math.min(Math.max(bpm, 20), 240);
+    }
+
+    private beat(trace: Trace, now: number, amp: number, startled: boolean, scale: number): void {
         const [first, second] = trace.beats;
         second.start = first.start;
         second.amp = first.amp;
         second.startled = first.startled;
+        second.scale = first.scale;
         first.start = now;
         first.amp = amp;
         first.startled = startled;
+        first.scale = scale;
         if (!startled) {
             this.beatCount++;
         }
@@ -310,7 +339,7 @@ export class Pulse extends Effect<PulseContext> {
         let v = 0;
         for (const beat of trace.beats) {
             const t = now - beat.start;
-            v += (beat.startled ? startle(t) : complex(t)) * beat.amp;
+            v += (beat.startled ? startle(t) : complex(t / beat.scale)) * beat.amp;
         }
         const sag = (now - trace.flatAt) / FLATTEN;
         if (sag > 0 && sag < 1) {
@@ -320,7 +349,8 @@ export class Pulse extends Effect<PulseContext> {
         dy = clamp(dy, -down, up * 1.45);
 
         const words = field.words;
-        const mood = !field.active ? 0.15 : words.invalid ? 3.5 : words.busy ? 1.5 : 1;
+        const calm = field.height < 60 && !Pulse.layout(field).narrow ? 0.1 : 1;
+        const mood = (!field.active ? 0.15 : words.invalid ? 3.5 : words.busy ? 1.5 : 1) * calm;
         const wobble = wander(now, trace.seed) * this.noise * Math.min(field.height, 40) * mood;
         const fizz = (Math.random() - 0.5) * this.noise * Math.min(field.height, 40) * 0.1 * mood;
         return clamp(dy + wobble + fizz, -down, up * 1.45);

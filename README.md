@@ -302,6 +302,15 @@ key belongs to which effect.
 | `Flock` | Pixi | the force field; the `rainEater`, `serpent` and `singularity` contexts and a pressed or fast pointer (kept clear of); `crystal:exploded`, `rainEater:exploded`, `lightning:strike`, `firework:exploded`, `meteor:impact`, `bubble:popped`, `singularity:collapsed`, presses and `page:hit` frighten it; DOM ledges (perches); the `rain` context (no perching in rain) | `count`, `perched`, `center` and `heading`; `flock:startled` |
 | `Serpent` | Three.js (instanced gems) | the pointer; the `flock` context (it hunts the birds); the `singularity` and `rainEater` contexts (it steers clear); `crystal:exploded`, `rainEater:exploded`, `meteor:impact`, `firework:exploded` and `singularity:collapsed` frighten it; `lightning:strike` runs down its body; the force field | its head position, velocity, length and `excited`; a vortex wake and a small repel force |
 | `Constellation` | Pixi | every event that has a position (`lightning:strike`, `rainEater:exploded`, `singularity:collapsed`, `crystal:exploded`, `meteor:impact`, `firework:exploded`, `bubble:popped`, `flock:startled`, `fireflies:synced`) and presses start a spark; the pointer is one more point; the force field | its context only: `nodes`, `links`, `signals` |
+| `Miniatures` | Pixi, inside page elements tagged `mini` | the element's state and the pointer over it; the events of the effect each miniature pictures (`lightning:strike`, `firework:exploded`, `rain:eaten`, `crystal:exploded`, `meteor:impact`, `bubble:popped`, …); the `wind` context; presses on the open stage | how many windows it draws in |
+| `Liquid` | Pixi, inside elements tagged `liquid` | the element's state and value (how full it is), the pointer (a press pokes the surface), the element being moved (it sloshes), the force field | how many elements it draws in |
+| `Sand` | Pixi, inside elements tagged `sand` | the element's state and value (which end the sand lies at), the pointer (a press dents the pile), the element being moved, the force field | that, and the grains in the air |
+| `Frost` | Pixi, inside elements tagged `frost`; drips fall into the page | the element's state (it frosts over while off or disabled), the pointer (it melts a hole), the force field bends the falling drops | that, and how many are frosted over |
+| `Fuse` | Pixi, round the border of elements tagged `fuse`; embers fall into the page | the element's state (`on`, `focus`, `busy`), the pointer (a press turns the spark round), the force field carries the embers, `lightning:strike` relights it | that, and the embers in the air |
+| `Circuit` | Pixi, inside elements tagged `circuit` | the element's state and value (how often signals run), the pointer (a press sends one), `lightning:strike`, `meteor:impact` and `crystal:exploded` (a surge) | that, and the signals travelling |
+| `Filings` | Pixi, inside elements tagged `filings` | the element's state (the field flips with the switch), the pointer near it, even from outside; the force field (wind and shock rings turn the needles) | that, and how many needles it draws |
+| `Pulse` | Pixi, inside elements tagged `pulse` | the element's state (`on`, `off`, `busy`, `invalid`) and value (the rate), the pointer (a press is a beat), `lightning:strike` (a startle) | that, and the beats so far |
+| `Petals` | Pixi, inside elements tagged `petals`; petals fall into the page | the element's state and value (how far the vine has grown), the pointer (a press shakes petals loose), the force field carries the falling petals, DOM ledges (they rest on them) | that, and the petals falling |
 | `BlankEffect` | nothing | nothing | the template to copy |
 
 `effects/Crystal/CrystalBody.ts` is not an effect but a building block shared by `RainEater`
@@ -318,6 +327,11 @@ and cohesion), `Snow/SnowCap.ts` (a heightfield of snow that slumps, melts and c
 `Tide/WaterSurface.ts` (a row of spring columns whose disturbances spread as rings) and
 `Meadow/BladeRow.ts` (a row of grass blades, each a spring on its tip). They are importable by
 path like `CrystalBody`.
+
+`effects/Field/` is the building block of the effects that draw inside inputs (the nine
+rows above the template): `FieldSet` keeps one record per tagged page element (its state from the tags, eased
+presence and level, the pointer over it, presses), and `FieldLayer` gives each element a
+`Graphics` clipped to its rounded rectangle. "Inside inputs" above says how a page asks for one.
 
 ## Commands
 

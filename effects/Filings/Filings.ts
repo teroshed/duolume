@@ -173,8 +173,9 @@ export class Filings extends Effect<FilingsContext> {
             for (let i = 0; i < n; i++) {
                 let a = base * (1 + 0.35 * Math.min(1, Math.abs(needles.vel[i]) * 40));
                 if (grain.textual) {
-                    const band = smoothstep(0.12 * h, 0.34 * h, Math.abs(needles.y[i] - h / 2));
-                    a *= 0.5 + 0.5 * band;
+                    // Words are written across the middle: only the rows near the top and bottom edges stay lit.
+                    const band = smoothstep(0.2 * h, 0.44 * h, Math.abs(needles.y[i] - h / 2));
+                    a *= 0.14 + 0.86 * band;
                 }
                 const q = Math.min(6, Math.round(a / 0.15));
                 if (q <= 0) {

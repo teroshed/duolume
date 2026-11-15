@@ -161,7 +161,7 @@ let surprise: string | null = null;
 
 const boxes = Array.from(document.querySelectorAll<HTMLInputElement>('input[data-effect]'));
 const surpriseBox = $<HTMLInputElement>('#switch-surprise');
-const surpriseTrack = $<HTMLElement>('#switch-surprise-track');
+const surpriseTrack = $<HTMLElement>('[data-fx-anchor="switch-surprise-track"]');
 const surpriseName = $<HTMLElement>('#surprise-name');
 const labelOf = new Map(SWITCHES);
 
