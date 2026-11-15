@@ -67,6 +67,10 @@ body {
   color: var(--text);
 }
 
+.back + .back {
+  margin-left: 14px;
+}
+
 .panel {
   width: min(300px, 100%);
   /* It is a ledge: grass and snow stand on its top edge, and need room under the header text. */

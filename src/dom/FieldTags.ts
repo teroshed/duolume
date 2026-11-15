@@ -3,6 +3,13 @@ export interface FieldTagsOptions {
     root?: ParentNode;
 }
 
+export interface FieldTags {
+    /** Read every control again. For after a script changed `.checked`, `.value` or `disabled`. */
+    refresh(): void;
+    /** Stop listening and remove the words this wrote. */
+    stop(): void;
+}
+
 /** The words this keeps up to date. Any other word in `data-fx-tags` is left as the page wrote it. */
 const MANAGED = /^(on|off|focus|disabled|invalid|knob|value:.*|r:.*)$/;
 const CONTROL = 'input, select, textarea, button, progress, meter';
@@ -28,10 +35,11 @@ const CONTROL = 'input, select, textarea, button, progress, meter';
  *         Rain
  *     </label>
  *
- * The stage already follows changes to `data-fx-tags`, so nothing else is needed.
- * Returns a function that stops it and takes the words out again.
+ * The stage already follows changes to `data-fx-tags`, so nothing else is needed. One case needs
+ * a word from the page: setting `.checked` or `.value` from script fires no event, so call
+ * `refresh()` after doing that. `stop()` ends it and takes the words out again.
  */
-export function attachFieldTags(options: FieldTagsOptions = {}): () => void {
+export function attachFieldTags(options: FieldTagsOptions = {}): FieldTags {
     const root = options.root ?? document;
     const touched = new WeakSet<Element>();
     const abort = new AbortController();
@@ -137,16 +145,19 @@ export function attachFieldTags(options: FieldTagsOptions = {}): () => void {
     window.addEventListener('resize', syncAll, { signal: abort.signal });
     syncAll();
 
-    return () => {
-        abort.abort();
-        mutations.disconnect();
-        for (const anchor of root.querySelectorAll('[data-fx-anchor]')) {
-            if (!controlOf(anchor)) {
-                continue;
+    return {
+        refresh: syncAll,
+        stop: () => {
+            abort.abort();
+            mutations.disconnect();
+            for (const anchor of root.querySelectorAll('[data-fx-anchor]')) {
+                if (!controlOf(anchor)) {
+                    continue;
+                }
+                const words = (anchor.getAttribute('data-fx-tags') ?? '').split(/\s+/).filter((word) => word !== '' && !MANAGED.test(word));
+                anchor.setAttribute('data-fx-tags', words.join(' '));
             }
-            const words = (anchor.getAttribute('data-fx-tags') ?? '').split(/\s+/).filter((word) => word !== '' && !MANAGED.test(word));
-            anchor.setAttribute('data-fx-tags', words.join(' '));
-        }
+        },
     };
 }
 

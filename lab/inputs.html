@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Inputs — Engine lab</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./inputs.css" />
+  </head>
+  <body>
+    <canvas id="stage" aria-hidden="true"></canvas>
+
+    <main class="inputs">
+      <header class="head">
+        <a class="back" href="./">← Engine lab</a>
+        <h1>Inputs</h1>
+        <p>
+          The canvas is behind the page, so a control with a clear inside is a window onto the scene. Each switch
+          below shows the effect it turns on. The cards under them are effects made to live inside a control.
+        </p>
+        <div class="head-actions">
+          <button id="motion" type="button" class="quiet" aria-pressed="false">Pause</button>
+        </div>
+      </header>
+
+      <section class="card" aria-labelledby="switch-title">
+        <h2 id="switch-title">Switch an effect on</h2>
+        <p>The picture in each switch is a miniature of its effect, and moves in step with the real one. The last switch picks one at random every time.</p>
+        <!-- Filled in by inputs.ts from the list of effects: one switch each, then the surprise. -->
+        <div id="switches" class="switches"></div>
+      </section>
+
+      <h2 class="group" id="made-title">Made for inputs</h2>
+      <!-- Filled in by inputs.ts: one card per input effect, each with a switch, a field, a button and a slider. -->
+      <section id="made" class="made" aria-labelledby="made-title"></section>
+    </main>
+
+    <script type="module" src="./inputs.ts"></script>
+  </body>
+</html>

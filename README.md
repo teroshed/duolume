@@ -163,6 +163,55 @@ is a ready-made listener: it plays a ripple on top of the element that was hit, 
 engine's own canvas (behind the page) cannot do. It works for a full-page canvas and for one
 placed anywhere in the page.
 
+## Inside inputs
+
+The canvas is behind the page, so an element with a clear inside is a window onto the scene. An
+input effect draws inside the page elements that carry its tag, clipped to their rounded corners:
+
+```html
+<label class="switch">
+    <input type="checkbox" checked />
+    <span class="track" data-fx-anchor="rain-switch" data-fx-tags="mini rain"></span>
+    Rain
+</label>
+```
+
+```ts
+import { attachFieldTags, VisualsManager } from 'duolume';
+import { Miniatures, Rain } from 'duolume/effects';
+
+const manager = await VisualsManager.create(canvas);
+manager.addEffect(new Rain()).addEffect(new Miniatures());
+attachFieldTags(); // keeps each control's state in its tags
+manager.run();
+```
+
+`Miniatures` puts a small moving picture of an effect inside anything tagged `mini`: rain in the
+switch that turns the rain on, a bolt in the lightning switch. The other word names the effect;
+all twenty scene effects have a miniature, and each moves in step with the real one (the small
+bolt strikes when `lightning:strike` is emitted). The other input effects are asked for the same
+way, by their own name: `data-fx-tags="liquid"`, `"sand"`, `"frost"`, `"fuse"`, `"circuit"`,
+`"filings"`, `"pulse"`, `"petals"`.
+
+The rest of the tags say what state the element is in, and that is how an effect knows:
+
+| Word | Means |
+| --- | --- |
+| `on` / `off` | a switch or checkbox is checked or not |
+| `focus` | it has the keyboard focus |
+| `disabled`, `invalid`, `busy` | it cannot be used; what was entered is not accepted; it is waiting |
+| `knob` | a knob covers one end (a switch track), so the picture keeps to the other |
+| `value:0.62` | how full it is, 0 to 1: a slider, a progress bar |
+| `r:10` | its corner radius in pixels; without it the element is taken to be a pill |
+
+`attachFieldTags()` writes these from the real form controls and keeps them current: for an
+element that is a control, contains one, or sits in the same `<label>` as one. A page can also
+write them itself. After changing `.checked` or `.value` from script, which fires no event, call
+`refresh()` on what `attachFieldTags()` returned.
+
+A window shows the scene through whatever the page paints over it. A tinted card dims it; a card
+with `backdrop-filter: blur` smears everything inside it, so keep windows off blurred surfaces.
+
 ## Input
 
 By default the manager listens to the whole window: as a background behind a page, a press

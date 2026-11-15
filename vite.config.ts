@@ -12,6 +12,6 @@ export default defineConfig({
         outDir: `${root}dist`,
         emptyOutDir: true,
         sourcemap: false,
-        rollupOptions: { input: { lab: `${root}lab/index.html`, solo: `${root}lab/solo.html` } },
+        rollupOptions: { input: { lab: `${root}lab/index.html`, inputs: `${root}lab/inputs.html`, solo: `${root}lab/solo.html` } },
     },
 });

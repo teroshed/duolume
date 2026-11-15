@@ -21,9 +21,11 @@ bunx vite --host 127.0.0.1 --port 3031 --strictPort    # dev server without open
 ```
 src/        the engine                    do not change it to make one effect work: raise it first
 effects/    one folder per effect         effects/<Name>/<Name>.ts, helpers beside it
+            Field/                        not an effect: what the input effects are built on
             contracts.ts                  every context and event the library publishes, typed
             index.ts                      the public export list
-lab/        index.html, the showcase      every effect with controls
+lab/        index.html, the showcase      every scene effect with controls
+            inputs.html                   the effects that draw inside controls
             solo.html, one effect alone   for building and checking an effect
 tests/      bun tests                     pure modules only: nothing that needs WebGL
 ```
@@ -43,7 +45,8 @@ In this repository:
 4. `README.md`, "The effect library": one table row.
 5. The lab: `lab/intensity.ts` (`EFFECT_NAMES`, and the scenes or levels it belongs to),
    `lab/main.ts` (construct it and add it, in draw order), `lab/index.html` (its checkbox),
-   `lab/README.md` if a count or a table changes.
+   `lab/README.md` if a count or a table changes. An effect that draws inside controls goes on
+   the Inputs page instead: one line in `MADE` in `lab/inputs.ts`.
 6. A test in `tests/` when the effect has logic that can be factored into a file with no
    `pixi.js` or `three` import (a solver, a heightfield, steering rules).
 
@@ -92,6 +95,42 @@ On the documentation site (`engine-docs`, a separate repository that carries a c
   light; alpha up to 1 covers. There are no lights in the scene: shade in the material.
 - Contexts and events are typed in `effects/contracts.ts`. Look there before reading another
   effect's context: `tick.read('singularity')` is already typed.
+
+### An effect that draws inside inputs
+
+The canvas is behind the page, so a control with a clear inside is a window onto the scene. An
+input effect draws inside every page element that carries its tag (`data-fx-tags="liquid"`), and
+learns the element's state from the other words in the same tags (`on`, `off`, `focus`,
+`disabled`, `invalid`, `busy`, `knob`, `value:0.62`, `r:10`; `effects/Field/words.ts` is the
+whole vocabulary, and `attachFieldTags()` in `src/dom/` writes them from the real controls).
+
+It stands on two small building blocks in `effects/Field/`, used the way `ParticleSet` is:
+
+- `FieldSet<T>`: `update(tick)` first thing in `onTick`, then loop over `fields`. Each `Field`
+  has the element's rectangle, its state, `presence` and `level` eased 0..1, the pointer over it,
+  `pressed` / `turnedOn` / `turnedOff` for one tick each, how far the element moved, the part a
+  knob leaves free, and the effect's own `data` for it.
+- `FieldLayer`: in `onRender`, `layer.draw(field)` gives a `Graphics` cleared, clipped to the
+  element's rounded rectangle, with its origin at the element's corner; `layer.sweep()` at the end.
+
+`effects/Miniatures/Miniatures.ts` is the shortest complete one. What is different from a scene effect:
+
+- It is small. A switch track is about 60×28 px and its knob covers one end. Design for that
+  first, and scale counts with the element's area for fields and pads.
+- It is crisp. At this size a glow is a smudge: hard-edged shapes a few pixels across, 1 px lines.
+- The page draws on top: the border, the knob, the text typed in it. Stay quiet behind text.
+- Never switch things: grow, pour and fade with `presence` and `level`.
+- A press here is on the control, so do not skip it when `tick.mouseOnInteractive` is true.
+- A window shows the scene through whatever the page paints over it. A card that blurs its
+  backdrop smears every window inside it.
+
+To see one: `lab/solo.html?effects=liquid&fields=liquid` builds sample controls carrying the tag
+(a switch on, a switch off, a text field, a button, a bar with a range inside; `samples=` picks,
+and adds `pad`). `scripts/solo-shot.mjs` prints where each one is, can act on them before a
+step (`"dom": [{ "check": ["#liquid-off-input", true] }, { "value": ["#liquid-bar-input", 20] },
+{ "focus": "#liquid-text" }]`), and with `SOLO_SCALE=2` photographs at two device pixels per
+pixel; crop and enlarge (`convert shot.png -crop 1100x200+0+60 -scale 300% zoom.png`) to judge
+something this small.
 
 ### Things that cost someone an hour
 
