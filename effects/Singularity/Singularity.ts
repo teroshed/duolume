@@ -19,6 +19,8 @@ export interface SingularityOptions {
     feed?: boolean;
     /** Drift around its home on a slow loop (once round in 90 seconds). False keeps it there. Default true. */
     wander?: boolean;
+    /** Its home follows the pointer, slowly, and its wander loop tightens while it does. False: it keeps its home (the `g` key still moves it). Default true. */
+    follow?: boolean;
 }
 
 /** forming: growing in. whole: itself. imploding: full, shrinking to a point. gone: collapsed, waiting to form again. */
@@ -45,7 +47,8 @@ type Phase = 'forming' | 'whole' | 'imploding' | 'gone';
  * What it tells the others: its position, disc radius and mass, and whether it has collapsed
  * (its context); an attraction and a vortex force while it exists; and when it collapses,
  * `singularity:collapsed`, a shock ring and a flash.
- * Keys: `g` moves its home to the pointer.
+ * Pointer: its home follows the pointer, slowly (`follow`).
+ * Keys: `g` moves its home to the pointer, which is how to move it with `follow` off.
  */
 export class Singularity extends Effect<SingularityContext> {
     public effectName: string = 'singularity';
@@ -64,6 +67,9 @@ export class Singularity extends Effect<SingularityContext> {
     /** Radius of the wander loop, as a share of the smaller stage side, and the time once round it. */
     public static readonly WANDER_RADIUS = 0.18;
     public static readonly WANDER_LOOP_MS = 90000;
+    /** How fast its home closes on the pointer while it follows (per second: 0.6 covers about half the gap each second), and how much of the wander loop it keeps meanwhile. */
+    public static readonly FOLLOW_RATE = 0.6;
+    public static readonly FOLLOW_WANDER = 0.3;
     /** How much of the force field's push it feels (it is heavy), and the spring that takes it back to its path. */
     public static readonly NUDGE_WEIGHT = 0.3;
     public static readonly NUDGE_SPRING = 0.000004;
@@ -90,6 +96,9 @@ export class Singularity extends Effect<SingularityContext> {
     private readonly spin: number;
     private readonly feed: boolean;
     private readonly wander: boolean;
+    private readonly follow: boolean;
+    /** How much of the wander loop is in use, 0..1: it tightens while the home follows the pointer. */
+    private leash = 1;
 
     /** Home as fractions of the stage, gliding toward `homeTarget`. */
     private readonly home: Vector3;
@@ -130,6 +139,7 @@ export class Singularity extends Effect<SingularityContext> {
         this.spin = clamp(options.spin ?? Singularity.SPIN, -0.01, 0.01);
         this.feed = options.feed ?? true;
         this.wander = options.wander ?? true;
+        this.follow = options.follow ?? true;
         const home = options.home ?? Singularity.HOME;
         this.home = { x: clamp(Number(home.x) || 0, 0, 1), y: clamp(Number(home.y) || 0, 0, 1) };
         this.homeTarget = { x: this.home.x, y: this.home.y };
@@ -192,12 +202,16 @@ export class Singularity extends Effect<SingularityContext> {
         this.phaseFor += dt;
         this.pathTime += dt;
 
-        if (mouse && tick.justPressedKeys.includes('g')) {
+        // The home goes where the pointer is: all the time and slowly when it follows, on `g` otherwise.
+        const following = this.follow && mouse !== undefined;
+        if (mouse && (following || tick.justPressedKeys.includes('g'))) {
             this.homeTarget.x = clamp(mouse.x / width, 0, 1);
             this.homeTarget.y = clamp(mouse.y / height, 0, 1);
         }
-        this.home.x = approach(this.home.x, this.homeTarget.x, 2.2, dt);
-        this.home.y = approach(this.home.y, this.homeTarget.y, 2.2, dt);
+        const rate = this.follow ? Singularity.FOLLOW_RATE : 2.2;
+        this.home.x = approach(this.home.x, this.homeTarget.x, rate, dt);
+        this.home.y = approach(this.home.y, this.homeTarget.y, rate, dt);
+        this.leash = approach(this.leash, following ? Singularity.FOLLOW_WANDER : 1, 1, dt);
 
         if (!this.seeded) {
             // The first tick is the first time the stage size is real.
@@ -372,7 +386,7 @@ export class Singularity extends Effect<SingularityContext> {
         if (this.wander) {
             // A slow two-to-three Lissajous figure: a closed loop that never quite retraces a simple circle.
             const turn = (this.pathTime / Singularity.WANDER_LOOP_MS) * Math.PI * 2;
-            const reach = Math.min(width, height) * Singularity.WANDER_RADIUS;
+            const reach = Math.min(width, height) * Singularity.WANDER_RADIUS * this.leash;
             x += Math.sin(turn * 2 + 0.6) * reach;
             y += Math.sin(turn * 3) * reach * 0.7;
         }

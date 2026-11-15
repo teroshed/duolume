@@ -166,7 +166,7 @@ A key belongs to one effect. Lower-case names, read from `tick.justPressedKeys` 
 | `arrowleft` `arrowright` | `wind` | blow |
 | `b` | `bubbles` | blow a cluster from the pointer |
 | `c` | `confetti` | fire both cannons |
-| `g` | `singularity` | move its home to the pointer |
+| `g` | `singularity` | move its home to the pointer (it also follows the pointer by itself, slowly, unless `follow: false`) |
 | `m` | `meteors` | send one to the pointer |
 | `1`–`0` | the lab page | effect switches and speed |
 
