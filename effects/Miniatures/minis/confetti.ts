@@ -42,7 +42,7 @@ function burst(shower: Shower, box: MiniBox, x: number, y: number, count: number
         piece.x = x;
         piece.y = y;
         piece.vx = way === 0 ? randomNumber(-0.07, 0.07) : way * randomNumber(0.02, 0.09);
-        piece.vy = -box.height * 0.004 * randomNumber(0.45, 0.95);
+        piece.vy = -box.height * 0.0022 * randomNumber(0.5, 1);
     }
 }
 
@@ -54,7 +54,7 @@ function burst(shower: Shower, box: MiniBox, x: number, y: number, count: number
  */
 export const confetti: Mini<Shower> = {
     create(box) {
-        const count = clamp(Math.round((box.w * box.height) / 95), 8, 28);
+        const count = clamp(Math.round((box.w * box.height) / 75), 10, 30);
         const pieces: Piece[] = [];
         for (let i = 0; i < count; i++) {
             pieces.push({

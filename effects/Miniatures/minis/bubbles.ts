@@ -2,7 +2,8 @@ import { clamp, randomNumber } from '../../../src/math';
 import type { Mini, MiniBox } from '../Mini';
 
 interface Bubble {
-    /** Centre: pixels from the left of the free part, and from the element's top. */
+    /** The middle of the lane it rises in, and its centre: pixels from the left of the free part, and from the element's top. */
+    lane: number;
     x: number;
     y: number;
     r: number;
@@ -22,33 +23,36 @@ const POP_MS = 240;
 
 /** The radius of the biggest bubble this element gets. */
 function biggest(box: MiniBox): number {
-    return clamp(box.height * 0.2, 4.5, 11);
+    return clamp(box.height * 0.18, 4.5, 11);
 }
 
-/** Send a bubble up again from below the element (or, to begin with, from anywhere in it). */
-function blow(bubble: Bubble, box: MiniBox, anywhere: boolean): void {
+/** Send a bubble up again from just below the element, in its own lane. */
+function blow(bubble: Bubble, box: MiniBox): void {
     bubble.r = biggest(box) * randomNumber(0.55, 1);
-    bubble.x = randomNumber(bubble.r, Math.max(bubble.r, box.w - bubble.r));
-    bubble.y = anywhere ? randomNumber(bubble.r, box.height) : box.height + bubble.r + randomNumber(0, 3);
-    bubble.rise = randomNumber(0.004, 0.007);
+    bubble.x = bubble.lane + randomNumber(-1.5, 1.5);
+    bubble.y = box.height + bubble.r * 0.6;
+    bubble.rise = randomNumber(0.0042, 0.005);
     bubble.popped = -1;
 }
 
 /**
- * Bubbles: two or three soap bubbles (more in a wider element), each a rim with a highlight,
+ * Bubbles: a handful of soap bubbles (more in a wider element), each a rim with a highlight,
  * rising and wobbling. One pops when a real one does, when the element is pressed (the one
  * under the pointer), and now and then by itself. They lean with the wind and shy from the pointer.
  */
 export const bubbles: Mini<Bath> = {
     create(box) {
-        const count = clamp(Math.round(box.w / (biggest(box) * 2.2)), 3, 10);
+        const count = clamp(Math.round(box.w / (biggest(box) * 1.4)), 5, 12);
+        const edge = Math.min(6, box.w * 0.12);
         const list: Bubble[] = [];
         for (let i = 0; i < count; i++) {
-            const bubble: Bubble = { x: 0, y: 0, r: 1, rise: 0, wobble: Math.random() * 6.28, popped: -1 };
-            blow(bubble, box, true);
+            // One lane each across the element, and spread out over its height, so some are always in view.
+            const bubble: Bubble = { lane: edge + ((i + 0.5) / count) * (box.w - edge * 2), x: 0, y: 0, r: 1, rise: 0, wobble: Math.random() * 6.28, popped: -1 };
+            blow(bubble, box);
+            bubble.y = ((i * 0.618 + 0.2) % 1) * (box.height + bubble.r * 2) - bubble.r;
             list.push(bubble);
         }
-        return { bubbles: list, next: randomNumber(1500, 3500) };
+        return { bubbles: list, next: randomNumber(3000, 6000) };
     },
 
     tick(bath, box, signal) {
@@ -58,15 +62,15 @@ export const bubbles: Mini<Bath> = {
         bath.next -= dt;
         const pop = signal.pulse > 0 || signal.kick || bath.next <= 0;
         if (pop) {
-            bath.next = randomNumber(2600, 5200);
+            bath.next = randomNumber(5000, 9000);
         }
         let chosen: Bubble | undefined;
         let best = Infinity;
         for (const b of bath.bubbles) {
             if (b.popped >= 0) {
                 b.popped += dt;
-                if (b.popped > POP_MS + 350) {
-                    blow(b, box, false);
+                if (b.popped > POP_MS) {
+                    blow(b, box);
                 }
                 continue;
             }
@@ -81,7 +85,7 @@ export const bubbles: Mini<Bath> = {
                 b.y += (dy / d) * dt * 0.02;
             }
             if (b.y < -b.r) {
-                blow(b, box, false);
+                blow(b, box);
                 continue;
             }
             // Blown out of one side, it comes in at the other.

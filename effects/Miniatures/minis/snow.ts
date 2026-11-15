@@ -34,7 +34,7 @@ function top(snow: Snowfall, box: MiniBox, full: number, i: number): number {
  * Snow: flakes drifting down over the whole element and a drift along the bottom that every
  * landing flake adds to. Where it gets too steep it slumps sideways, and when it is full it
  * slumps altogether and starts again. The wind slants the flakes and, when strong, shaves the
- * drift; the pointer wipes the snow away under it; a press knocks it all down.
+ * drift; the pointer wipes the snow away under it; a press knocks half of it down.
  */
 export const snow: Mini<Snowfall> = {
     create(box) {
@@ -73,12 +73,14 @@ export const snow: Mini<Snowfall> = {
         }
         const shave = Math.max(0, Math.abs(signal.wind) - 0.5) * 0.0003 * dt;
         const sink = snow.slump > 0 ? Math.exp(-dt * 0.006) : 1;
+        // The steepest the drift can stand: about one pixel up per column.
+        const steep = 1.1 / Math.max(1, 0.75 * full);
         let sum = 0;
         for (let i = 0; i <= last; i++) {
             // Too steep between two columns: snow slides to the lower one.
             const step = i < last ? pile[i] - pile[i + 1] : 0;
-            if (Math.abs(step) > 0.16) {
-                const slide = (step - Math.sign(step) * 0.16) * 0.3;
+            if (Math.abs(step) > steep) {
+                const slide = (step - Math.sign(step) * steep) * 0.3;
                 pile[i] -= slide;
                 pile[i + 1] += slide;
             }
@@ -92,8 +94,11 @@ export const snow: Mini<Snowfall> = {
             sum += pile[i];
         }
         snow.slump = Math.max(0, snow.slump - dt);
-        if (signal.kick || sum / pile.length > 0.8) {
+        // Full: it all comes down. A press knocks about half of it off.
+        if (sum / pile.length > 0.8) {
             snow.slump = 500;
+        } else if (signal.kick) {
+            snow.slump = 130;
         }
     },
 

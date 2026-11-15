@@ -11,8 +11,10 @@ interface Flock {
     /** Each bird's place in the formation, from its centre. */
     slotX: Float32Array;
     slotY: Float32Array;
-    /** Where the formation is on its round of the element, in radians. */
+    /** Where the formation is on its round of the element, in radians, and how far that round reaches from the middle. */
     wheel: number;
+    roomX: number;
+    roomY: number;
     /** Milliseconds of fright left: while it lasts they fly apart instead of keeping their places. */
     fright: number;
     /** Milliseconds until they take fright by themselves. */
@@ -41,8 +43,10 @@ function dart(g: Graphics, x: number, y: number, vx: number, vy: number, size: n
  */
 export const flock: Mini<Flock> = {
     create(box) {
-        const count = clamp(Math.round(box.w / 4.5), 7, 20);
-        const spread = clamp(2.2 * Math.sqrt(count), 6, 9);
+        const count = clamp(Math.round(box.w / 4.5), 7, 18);
+        // The formation is loose and as big as the element allows: a fifth of its width, a quarter of its height.
+        const spreadX = clamp(box.w * 0.2, 7.5, 44);
+        const spreadY = clamp(box.height * 0.26, 5, 20);
         const flock: Flock = {
             xs: new Float32Array(count),
             ys: new Float32Array(count),
@@ -51,6 +55,8 @@ export const flock: Mini<Flock> = {
             slotX: new Float32Array(count),
             slotY: new Float32Array(count),
             wheel: Math.random() * 6.28,
+            roomX: Math.max(5, box.w / 2 - spreadX - 3),
+            roomY: Math.max(4, box.height / 2 - spreadY - 3),
             fright: 0,
             next: randomNumber(3500, 6000),
             scale: clamp(box.height / 25, 1.1, 1.5),
@@ -58,8 +64,8 @@ export const flock: Mini<Flock> = {
         for (let i = 0; i < count; i++) {
             // Places spread evenly over a disc (a sunflower), so no two birds share one.
             const ring = Math.sqrt((i + 0.5) / count);
-            flock.slotX[i] = Math.cos(i * 2.4) * spread * ring * 1.3;
-            flock.slotY[i] = Math.sin(i * 2.4) * spread * ring;
+            flock.slotX[i] = Math.cos(i * 2.4) * spreadX * ring;
+            flock.slotY[i] = Math.sin(i * 2.4) * spreadY * ring;
             flock.xs[i] = box.w / 2 + flock.slotX[i];
             flock.ys[i] = box.height / 2 + flock.slotY[i];
         }
@@ -68,8 +74,7 @@ export const flock: Mini<Flock> = {
 
     tick(flock, box, signal) {
         const dt = signal.dt;
-        const roomX = Math.max(4, box.w / 2 - 9);
-        const roomY = Math.max(3, box.height / 2 - 8);
+        const { roomX, roomY } = flock;
         const pace = Math.hypot(Math.sin(flock.wheel) * roomX, Math.cos(flock.wheel) * roomY);
         flock.wheel += (dt * 0.028 * (signal.hover ? 1.3 : 1)) / Math.max(3, pace);
         const centreX = box.w / 2 + Math.cos(flock.wheel) * roomX;
@@ -82,7 +87,7 @@ export const flock: Mini<Flock> = {
         const startled = signal.pulse > 0 || signal.kick || flock.next <= 0;
         if (startled) {
             flock.next = randomNumber(5000, 9000);
-            flock.fright = 650;
+            flock.fright = 380;
         }
         const fromX = signal.hover ? px : centreX;
         const fromY = signal.hover ? py : centreY;
@@ -90,8 +95,8 @@ export const flock: Mini<Flock> = {
         for (let i = 0; i < flock.xs.length; i++) {
             if (startled) {
                 const away = Math.atan2(flock.ys[i] - fromY, flock.xs[i] - fromX) + randomNumber(-0.5, 0.5);
-                flock.vxs[i] = Math.cos(away) * 0.085;
-                flock.vys[i] = Math.sin(away) * 0.085;
+                flock.vxs[i] = Math.cos(away) * 0.05;
+                flock.vys[i] = Math.sin(away) * 0.05;
             }
             // Fly toward its own place in the formation, slower as it gets there.
             const dx = centreX + flock.slotX[i] - flock.xs[i];

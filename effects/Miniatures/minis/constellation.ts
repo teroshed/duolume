@@ -58,7 +58,8 @@ function spread(net: Net, point: number, hops: number, cameBy: number): void {
  */
 export const constellation: Mini<Net> = {
     create(box) {
-        const count = clamp(Math.round(box.w / 6.5), 5, 16);
+        const count = clamp(Math.round((box.w * box.height) / 190), 5, 18);
+        let height = randomNumber(0.2, 0.8);
         const net: Net = {
             u: new Float32Array(count),
             v: new Float32Array(count),
@@ -70,9 +71,12 @@ export const constellation: Mini<Net> = {
             next: randomNumber(500, 1500),
         };
         for (let i = 0; i < count; i++) {
-            // A zigzag from one end to the other, loosened: the chain, and here and there a link that skips one.
+            // Points from one end to the other, each a good step up or down from the last: the chain
+            // that joins them wanders, and here and there a link skips a point.
+            const step = randomNumber(0.3, 0.55) * (Math.random() < 0.5 ? -1 : 1);
+            height = height + step > 0.86 || height + step < 0.14 ? height - step : height + step;
             net.u[i] = clamp((i + 0.5 + randomNumber(-0.3, 0.3)) / count, 0.1, 0.92);
-            net.v[i] = (i % 2 === 0 ? 0.28 : 0.72) + randomNumber(-0.14, 0.14);
+            net.v[i] = clamp(height, 0.14, 0.86);
             net.phase[i] = Math.random() * 6.28;
             if (i > 0) {
                 net.linkA.push(i - 1);

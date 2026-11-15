@@ -41,14 +41,15 @@ function send(meteor: Meteor, box: MiniBox, wind: number, toX: number): void {
 
 /**
  * Meteors: a streak with a bright head that crosses the element on a steep diagonal and lands on
- * its bottom edge with a spark and an ember that cools. A wider element has several going. One
+ * its bottom edge with a spark and an ember that cools. Two at a time, more in a wider element. One
  * lands the moment a real one does, a press sends a big one to the pointer, and under the pointer
  * they come more often and aim near it. They travel the way the wind blows.
  */
 export const meteors: Mini<Meteor[]> = {
     create(box) {
         const list: Meteor[] = [];
-        const count = clamp(Math.round(box.w / 70), 1, 4);
+        // Two even in a switch, out of step, so one is nearly always on its way.
+        const count = clamp(Math.round(box.w / 55), 2, 4);
         for (let i = 0; i < count; i++) {
             list.push({ flight: -1, wait: randomNumber(100, 400) + i * 500, fromX: 0, fromY: 0, toX: 0, toY: 0, landed: -1, scarX: 0, scarY: 0, big: false });
         }
@@ -87,7 +88,7 @@ export const meteors: Mini<Meteor[]> = {
             meteor.flight += (dt * SPEED) / Math.hypot(meteor.toX - meteor.fromX, meteor.toY - meteor.fromY);
             if (meteor.flight >= 1) {
                 meteor.flight = -1;
-                meteor.wait = randomNumber(350, 900);
+                meteor.wait = randomNumber(250, 700);
                 meteor.landed = 0;
                 meteor.scarX = meteor.toX;
                 meteor.scarY = meteor.toY;
@@ -101,7 +102,7 @@ export const meteors: Mini<Meteor[]> = {
                 const x = meteor.scarX;
                 const y = meteor.scarY;
                 const cool = 1 - meteor.landed / SCAR_MS;
-                g.circle(x, y, 0.5 + 1.5 * cool).fill({ color: mixColor(theme.accent, theme.ink, cool), alpha: cool });
+                g.circle(x, y, 0.6 + 1.6 * cool).fill({ color: mixColor(theme.accent, theme.ink, cool), alpha: Math.sqrt(cool) });
                 if (meteor.landed < SPARK_MS) {
                     // The spark: five rays fanned upward and half a ring, both running outward.
                     const t = meteor.landed / SPARK_MS;

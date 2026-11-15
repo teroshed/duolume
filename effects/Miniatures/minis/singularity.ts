@@ -23,7 +23,7 @@ interface Hole {
 }
 
 const TILT = -0.3;
-const GONE_MS = 650;
+const GONE_MS = 450;
 
 /** The point at angle `a` on the tilted band of half-width `rx`. Returns x; y through `bandY`. */
 function bandX(a: number, rx: number): number {
@@ -90,7 +90,7 @@ export const singularity: Mini<Hole> = {
             }
         }
         const exists = hole.collapsed < 0;
-        hole.size = approach(hole.size, exists ? 1 : 0, exists ? 4 : 30, dt);
+        hole.size = approach(hole.size, exists ? 1 : 0, exists ? 6 : 30, dt);
 
         const mouth = hole.radius * hole.size * 0.9;
         for (let i = 0; i < hole.dustX.length; i++) {

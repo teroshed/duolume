@@ -23,9 +23,9 @@ interface Sea {
     next: number;
 }
 
-/** How deep the water stands, in pixels. At full level: a third of the element, and at least 12 px. */
+/** How deep the water stands, in pixels. At full level: 28% of the element (under the text of a field), and at least 11 px. */
 function depth(box: MiniBox, signal: MiniSignal): number {
-    return Math.min(box.height * 0.7, Math.max(12, box.height * 0.34) * (0.3 + 0.7 * signal.level)) * signal.presence;
+    return Math.min(box.height * 0.7, Math.max(11, box.height * 0.28) * (0.3 + 0.7 * signal.level)) * signal.presence;
 }
 
 /** How far the surface stands above its resting line at `x`. `lag` puts a band out of step with the others. */
