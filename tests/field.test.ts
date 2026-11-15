@@ -67,11 +67,20 @@ describe('field set', () => {
         expect(set.fields.length).toBe(0);
     });
 
-    test('on and focus show it, off and disabled hide it, and saying neither shows it', () => {
+    test('on shows it, off and disabled hide it, and saying neither shows it', () => {
         const set = new FieldSet<null>('fuse', () => null);
-        set.update(tick([anchor('on', 'fuse on'), anchor('off', 'fuse off'), anchor('plain', 'fuse'), anchor('focused', 'fuse off focus'), anchor('dead', 'fuse on disabled')]));
+        set.update(tick([anchor('on', 'fuse on'), anchor('off', 'fuse off'), anchor('plain', 'fuse'), anchor('dead', 'fuse on disabled')]));
         const active = Object.fromEntries(set.fields.map((field) => [field.name, field.active]));
-        expect(active).toEqual({ on: true, off: false, plain: true, focused: true, dead: false });
+        expect(active).toEqual({ on: true, off: false, plain: true, dead: false });
+    });
+
+    test('the focus does not light a switch that is off: one just clicked off still has it', () => {
+        const set = new FieldSet<null>('fuse', () => null);
+        set.update(tick([anchor('clicked', 'fuse on focus knob'), anchor('field', 'fuse focus')]));
+        expect(set.fields.map((field) => field.active)).toEqual([true, true]);
+        set.update(tick([anchor('clicked', 'fuse off focus knob'), anchor('field', 'fuse focus')]));
+        expect(set.fields.map((field) => field.active)).toEqual([false, true]);
+        expect(set.fields[0].turnedOff).toBe(true);
     });
 
     test('presence eases in and out, and the turn is reported for one tick', () => {

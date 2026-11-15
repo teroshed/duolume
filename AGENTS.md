@@ -143,6 +143,8 @@ something this small.
   every polygon as the last one. Use `moveTo`/`lineTo`, or a fresh array.
 - **`ParticleSet` caps births per tick.** Refilling a whole population at once arrives as a band
   across the stage. Spawn a trickle.
+- **Pixi does not clamp alpha.** A stroke whose computed alpha came to 1.05 drew almost
+  invisible (seen once, in the wind miniature). Clamp an alpha you compute to 0..1.
 - **"[BindGroup] a 'textureSource' was destroyed while still bound"** on removing an effect comes
   from inside Pixi: bind groups that reference a texture outlive the display object that used it
   (for batches they sit in a cache that is never cleared, `getTextureBatchBindGroup`), so

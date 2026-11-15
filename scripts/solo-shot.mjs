@@ -43,6 +43,11 @@ if (!prefix || !effects) {
     console.error('usage: node scripts/solo-shot.mjs <outPrefix> <effects> [steps-json] [extra-query]');
     process.exit(2);
 }
+// "$OUT/rain" with OUT unset is "/rain": pictures in the filesystem root. Two agents did this.
+if (/^[\\/][^\\/]*$/.test(prefix)) {
+    console.error(`solo-shot: "${prefix}" would write into the filesystem root. Is a shell variable in the path empty?`);
+    process.exit(2);
+}
 const steps = stepsJson ? JSON.parse(stepsJson) : [{ ticks: 600, shot: 'a' }];
 const port = process.env.SOLO_PORT || '3031';
 
@@ -103,7 +108,9 @@ const fieldList = await page.evaluate(() => window.solo.fields());
 if (fieldList.length > 0) {
     console.log('fields (name x y width height | tags):');
     for (const field of fieldList) {
-        console.log(`  ${field.name} ${field.x} ${field.y} ${field.width} ${field.height} | ${field.tags}`);
+        // The picture is 1280x800: a sample below that is simply missing from it, so say so.
+        const outside = field.x + field.width > 1280 || field.y + field.height > 800 ? '   <- OUTSIDE THE PICTURE: ask for fewer tags or samples' : '';
+        console.log(`  ${field.name} ${field.x} ${field.y} ${field.width} ${field.height} | ${field.tags}${outside}`);
     }
 }
 

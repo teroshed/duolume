@@ -19,9 +19,10 @@ export interface Field<T> {
     /** What its tags say. See `words.ts`. */
     readonly words: FieldWords;
     /**
-     * Whether the effect should be showing. True while it is `on` or has the `focus`; also true
-     * when the tags say neither `on` nor `off` (a button, a text field: always showing).
-     * Never true while `disabled`.
+     * Whether the effect should be showing. True while it is `on`; also true when the tags say
+     * neither `on` nor `off` (a button, a text field: always showing). Never true while `off`
+     * or `disabled`: the focus does not light a switch that is off, so a switch that was just
+     * clicked off goes out. An effect that wants to answer the focus reads `words.focus`.
      */
     active: boolean;
     /** `active` eased, 0..1. Fade and grow things with it rather than switching them. */
@@ -138,7 +139,7 @@ export class FieldSet<T> {
             const half = Math.min(anchor.width, anchor.height) / 2;
             field.radius = Math.min(half, words.radius ?? half);
 
-            const active = !words.disabled && (words.on || words.focus || !words.off);
+            const active = !words.disabled && (words.on || !words.off);
             field.turnedOn = active && !field.active && !fresh;
             field.turnedOff = !active && field.active;
             field.active = active;

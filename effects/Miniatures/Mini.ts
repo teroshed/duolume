@@ -9,7 +9,8 @@ export interface MiniBox {
     /**
      * The part no knob covers: `x` is its left edge, `w` its width. Put the subject here.
      * A switch's knob sits at the right end while it is on, so this is the left part; for an
-     * element with no knob it is the whole width.
+     * element with no knob it is the whole width. `x` jumps when a switch is turned (the knob
+     * changes ends), so keep positions relative to it rather than to the element.
      */
     x: number;
     w: number;
