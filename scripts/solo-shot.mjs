@@ -13,7 +13,12 @@
 //                a press" make the press its own 2-tick step. A step with "shot" is photographed; a step with
 //                "print": true prints what each effect published at that moment.
 //                Default: [{"ticks":600,"shot":"a"}]
-//   extra-query  appended to the address: "seed=3&ledges=0&budget=0.4&options=<url-encoded JSON>"
+//                A step may also act on the page before its ticks, with "dom": a list of
+//                { "check": ["#id", true] }, { "click": "#id" }, { "focus": "#id" }, { "blur": true },
+//                { "value": ["#id", 30] } (a range input), { "type": ["#id", "text"] }.
+//   extra-query  appended to the address: "seed=3&ledges=0&budget=0.4&options=<url-encoded JSON>",
+//                and for effects that draw inside inputs "fields=liquid,mini+rain" (sample inputs
+//                carrying those tags; their names and places are printed) and "samples=switch,off".
 //
 // The dev server must be running (bunx vite --host 127.0.0.1 --port 3031 --strictPort);
 // SOLO_PORT overrides the port. Needs Playwright with a Chromium it can launch; it is not a
@@ -38,6 +43,11 @@ if (!prefix || !effects) {
     console.error('usage: node scripts/solo-shot.mjs <outPrefix> <effects> [steps-json] [extra-query]');
     process.exit(2);
 }
+// "$OUT/rain" with OUT unset is "/rain": pictures in the filesystem root. Two agents did this.
+if (/^[\\/][^\\/]*$/.test(prefix)) {
+    console.error(`solo-shot: "${prefix}" would write into the filesystem root. Is a shell variable in the path empty?`);
+    process.exit(2);
+}
 const steps = stepsJson ? JSON.parse(stepsJson) : [{ ticks: 600, shot: 'a' }];
 const port = process.env.SOLO_PORT || '3031';
 
@@ -45,7 +55,8 @@ const port = process.env.SOLO_PORT || '3031';
 const browser = await chromium.launch({
     args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
 });
-const page = await browser.newPage({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 });
+// SOLO_SCALE=2 photographs at two device pixels per pixel: for looking closely at small things.
+const page = await browser.newPage({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: Number(process.env.SOLO_SCALE || 1) });
 const logs = [];
 page.on('console', (message) => {
     if (message.type() === 'error' || message.type() === 'warning') {
@@ -93,8 +104,42 @@ try {
     process.exit(1);
 }
 
+const fieldList = await page.evaluate(() => window.solo.fields());
+if (fieldList.length > 0) {
+    console.log('fields (name x y width height | tags):');
+    for (const field of fieldList) {
+        // The picture is 1280x800: a sample below that is simply missing from it, so say so.
+        const outside = field.x + field.width > 1280 || field.y + field.height > 800 ? '   <- OUTSIDE THE PICTURE: ask for fewer tags or samples' : '';
+        console.log(`  ${field.name} ${field.x} ${field.y} ${field.width} ${field.height} | ${field.tags}${outside}`);
+    }
+}
+
+/** Act on the page's real controls, the way a visitor would. */
+async function act(action) {
+    if (action.check) {
+        await page.locator(action.check[0]).setChecked(action.check[1], { force: true });
+    } else if (action.click) {
+        await page.locator(action.click).click({ force: true });
+    } else if (action.focus) {
+        await page.locator(action.focus).focus();
+    } else if (action.blur) {
+        await page.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur());
+    } else if (action.value) {
+        await page.locator(action.value[0]).evaluate((element, value) => {
+            element.value = String(value);
+            element.dispatchEvent(new Event('input', { bubbles: true }));
+            element.dispatchEvent(new Event('change', { bubbles: true }));
+        }, action.value[1]);
+    } else if (action.type) {
+        await page.locator(action.type[0]).fill(action.type[1]);
+    }
+}
+
 for (const step of steps) {
     const started = Date.now();
+    for (const action of step.dom ?? []) {
+        await act(action);
+    }
     await page.evaluate(({ ticks, input }) => window.solo.step(ticks, input || {}), {
         ticks: step.ticks ?? 0,
         input: step.input,

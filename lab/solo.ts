@@ -1,4 +1,4 @@
-import { attachPageRipples, Effect, VisualsManager, type AnyEffect, type TickInput } from '../src';
+import { attachFieldTags, attachPageRipples, Effect, VisualsManager, type AnyEffect, type TickInput } from '../src';
 
 /**
  * Solo: run a chosen few effects on an otherwise empty stage. For working on one effect, and
@@ -11,6 +11,8 @@ import { attachPageRipples, Effect, VisualsManager, type AnyEffect, type TickInp
  *   &budget=0.4                                   hold the frame budget at 40%, to see an effect thin out
  *   &ledges=0                                     no page elements
  *   &options={"rain":{"dropCount":300}}           constructor options, by effectName
+ *   &fields=liquid,mini+rain                      sample inputs carrying these tags (+ joins words)
+ *   &samples=switch,off,text,button,bar,pad       which samples each gets (default: all but pad)
  *
  * Nothing is registered anywhere: every class in effects/ that extends Effect is found by its
  * `effectName`, so a new effect is available here the moment its file exists.
@@ -37,6 +39,56 @@ if (params.get('ledges') === '0') {
         shelf.remove();
     }
 }
+
+/**
+ * Sample inputs for effects that draw inside page elements. Every entry of `fields` gets a row
+ * of real controls, each a window onto the stage and tagged with the entry's words:
+ * a switch that is on, one that is off, a text field, a button, a bar with a range inside, a pad.
+ * Their anchors are named `<entry>-on`, `-off`, `-text`, `-button`, `-bar`, `-pad` (a `+` in the
+ * entry becomes `-`), and the controls inside the switches and the bar `<anchor>-input`.
+ */
+function buildFields(): void {
+    const entries = (params.get('fields') ?? '').split(',').map((entry) => entry.trim()).filter(Boolean);
+    if (entries.length === 0) {
+        return;
+    }
+    const samples = (params.get('samples') ?? 'switch,off,text,button,bar').split(',');
+    const holder = document.querySelector<HTMLElement>('#fields')!;
+    holder.hidden = false;
+    for (const entry of entries) {
+        // In an address a "+" is a space, so "mini+rain" arrives as "mini rain": either way, words.
+        const words = entry.split(/[+\s]+/).filter(Boolean);
+        const tags = words.join(' ');
+        const id = words.join('-');
+        const parts: string[] = [`<span class="name">${tags}</span>`];
+        const toggle = (name: string, checked: boolean): string =>
+            `<label class="sw"><input id="${id}-${name}-input" type="checkbox"${checked ? ' checked' : ''} /><span class="track" data-fx-anchor="${id}-${name}" data-fx-tags="${tags}"><span class="knob"></span></span></label>`;
+        if (samples.includes('switch')) {
+            parts.push(toggle('on', true));
+        }
+        if (samples.includes('off')) {
+            parts.push(toggle('off', false));
+        }
+        if (samples.includes('text')) {
+            parts.push(`<input id="${id}-text" class="tf" type="text" placeholder="Write" autocomplete="off" data-fx-anchor="${id}-text" data-fx-tags="${tags}" />`);
+        }
+        if (samples.includes('button')) {
+            parts.push(`<button id="${id}-button" class="bt" type="button" data-fx-anchor="${id}-button" data-fx-tags="${tags}">Send</button>`);
+        }
+        if (samples.includes('bar')) {
+            parts.push(`<span class="bar" data-fx-anchor="${id}-bar" data-fx-tags="${tags}"><input id="${id}-bar-input" type="range" min="0" max="100" value="60" aria-label="${tags} level" /></span>`);
+        }
+        if (samples.includes('pad')) {
+            parts.push(`<div class="pad" data-fx-anchor="${id}-pad" data-fx-tags="${tags} r:14"></div>`);
+        }
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.innerHTML = parts.join('');
+        holder.append(cell);
+    }
+    attachFieldTags();
+}
+buildFields();
 
 type EffectClass = new (options?: Record<string, unknown>) => AnyEffect;
 
@@ -166,6 +218,21 @@ if (still !== null) {
     manager.run();
 }
 
-const solo = { manager, step, effects: requested };
+/** Where the sample inputs are and what their tags say, for pointing a scripted pointer at them. */
+function fields(): { name: string; x: number; y: number; width: number; height: number; tags: string }[] {
+    manager.prewarm(0);
+    return manager.stage.allAnchors
+        .filter((anchor) => !anchor.name.startsWith('shelf'))
+        .map((anchor) => ({
+            name: anchor.name,
+            x: Math.round(anchor.x),
+            y: Math.round(anchor.y),
+            width: Math.round(anchor.width),
+            height: Math.round(anchor.height),
+            tags: anchor.tags.join(' '),
+        }));
+}
+
+const solo = { manager, step, fields, effects: requested };
 Object.assign(window, { solo, visuals: manager });
 document.documentElement.dataset.soloReady = 'true';

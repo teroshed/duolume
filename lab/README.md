@@ -108,6 +108,25 @@ load. Paused is not saved: a lab that opens frozen looks broken. A saved state w
 scene opens in Storm; one whose switches lack any of the twenty effects (a save from the
 eight-effect lab) keeps its level and settings and takes the switches from the scene.
 
+## Inputs page (`/lab/inputs.html`)
+
+The effects that draw inside controls. The canvas is behind the page, so a control with a clear
+inside is a window onto the scene.
+
+- **Switch an effect on.** One switch per scene effect, twenty of them, each with a miniature of
+  its effect inside (`Miniatures`, asked for with `data-fx-tags="mini rain"`). Wind, rain and
+  ribbons are on at the start. The last switch, Surprise, turns on one effect chosen at random
+  from those that are off, shows that effect's miniature and names it; switched off, it turns
+  that effect off again.
+- **Made for inputs.** A card for each of `Liquid`, `Sand`, `Frost`, `Fuse`, `Circuit`,
+  `Filings`, `Pulse` and `Petals`, with a switch, a text field, a button and a slider carrying
+  its tag. The slider is a real range input laid invisibly over a bar whose inside is the picture.
+
+The page writes no state into the tags itself: `attachFieldTags()` does, from the controls. The
+one call it makes is `refresh()`, after it sets `.checked` from script. The cards only tint what
+is behind them; a blur would smear every window inside. Nothing is saved between visits, and the
+page has no programmatic interface of its own.
+
 ## Solo page
 
 `/lab/solo.html?effects=name,name` runs the chosen effects alone, in that order, on a small

@@ -324,6 +324,56 @@ export interface SerpentContext {
     excited: number;
 }
 
+// ---- input effects ----------------------------------------------------------------
+// They draw inside page elements that carry their tag. See effects/Field/.
+
+/** What every input effect publishes. */
+export interface FieldsContext {
+    /** Page elements it is drawing in right now (tagged for it and on screen). */
+    fields: number;
+    /** How many of those are showing: switched on, focused, or of a kind that is always on. */
+    active: number;
+}
+
+export type MiniaturesContext = FieldsContext;
+
+export type LiquidContext = FieldsContext;
+
+export interface SandContext extends FieldsContext {
+    /** Grains in the air right now, across all elements. */
+    grains: number;
+}
+
+export interface FrostContext extends FieldsContext {
+    /** Elements that are frosted over right now. */
+    frozen: number;
+}
+
+export interface FuseContext extends FieldsContext {
+    /** Embers in the air right now. */
+    embers: number;
+}
+
+export interface CircuitContext extends FieldsContext {
+    /** Signals travelling along traces right now. */
+    signals: number;
+}
+
+export interface FilingsContext extends FieldsContext {
+    /** Needles drawn right now, across all elements. */
+    needles: number;
+}
+
+export interface PulseContext extends FieldsContext {
+    /** Beats since the effect started. */
+    beats: number;
+}
+
+export interface PetalsContext extends FieldsContext {
+    /** Petals falling right now. */
+    petals: number;
+}
+
 // ---- the registry -----------------------------------------------------------------
 
 declare module '../src/types' {
@@ -349,6 +399,15 @@ declare module '../src/types' {
         tide: TideContext;
         nebula: NebulaContext;
         serpent: SerpentContext;
+        miniatures: MiniaturesContext;
+        liquid: LiquidContext;
+        sand: SandContext;
+        frost: FrostContext;
+        fuse: FuseContext;
+        circuit: CircuitContext;
+        filings: FilingsContext;
+        pulse: PulseContext;
+        petals: PetalsContext;
     }
     /** event name → its payload. (`page:hit` is declared by the engine itself.) */
     interface EngineEventMap {

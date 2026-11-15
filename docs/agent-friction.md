@@ -69,9 +69,22 @@ decide.
 | --- | --- | --- | --- |
 | 25 | The cloud session could not attach the PC's folders (they are in the Remote Control list but not offered to cloud sessions). The workspace was readable only through NexusMCP, which lists and reads but does not search: finding the engine's folder and the documentation site took 108 tool calls. | *proposed*: a text search tool in NexusMCP. Until then, `AGENTS.md` now names the documentation site and what it needs. | none |
 | 26 | The engine's folder on the PC is still called `web-visualizer-manager`. A search for "duolume" does not find it. | *proposed*: rename it when nothing has it open. | a few stale shortcuts |
-| 27 | The documentation site (`engine-docs`) has no git remote and holds uncommitted work, so nothing in the cloud can update it or check it. | *done*: `docs/engine-docs-kit/` in this branch holds the twelve example programs (compiled against this repository), the gallery entries and the reference rows, with the steps to apply them. *proposed*: give `engine-docs` a private remote. | a remote to push to |
+| 27 | The documentation site (`engine-docs`) has no git remote, so nothing in the cloud can update it or check it. (The brief also said it held uncommitted work. That came from a hand-over note that had gone stale: it was clean.) | *done*: a kit was carried in this repository (twelve example programs compiled against it, the gallery entries, the reference rows, the steps). The PC session applied it and deployed the site on 14 November, and the kit was then removed. *proposed*: give `engine-docs` a private remote. | a remote to push to |
 | 28 | Starting a session on the PC from the cloud is refused until its owner approves in person; the approval then limits the cloud session to trusted devices for good. | *done*: approved once in this session. Worth knowing before planning work around a PC companion. | one approval |
 | 29 | The orchestrator's own brief told an agent to use `baseUrl` in a temporary tsconfig; TypeScript 7 rejects it. | *done*: the agent used absolute `paths`. Noted here because the repository is on TypeScript 7 and older habits fail on it. | none |
+| 30 | The PC session could not message the cloud session back ("not vouched for as a trusted device"): only the cloud side had been approved. Its two reports reached the cloud session by being read off the PC's disk and by the owner pasting them. | *proposed (practice)*: have a companion session write its report to a file from the start, and say where. Do not plan on a reply. | a paste |
+| 31 | The PC session would not publish on an approval relayed by another session, even quoted and offered for checking in the transcript. It asked its owner one yes/no question in its own chat instead. | *nothing to fix*: this is the right behaviour, and it cost one word. Worth knowing when planning: a deploy from a companion session needs its owner present there. | one word, typed in the right chat |
+| 32 | A check-in the cloud session scheduled for itself failed with "access denied" after the session had been limited to trusted devices. | *not understood*. Do not rely on a scheduled wake-up in a session that has been through the trust approval. | none |
+| 33 | Ten builders in parallel used up the plan's 5-hour usage limit and were all cut off mid-work, eight of them before reporting. Two had spent their whole share studying and had written nothing. | *done (practice)*: on resuming, each was told to write every file first and then check in a few rounds that cover everything at once. Their files survived, so the restart cost little. Worth planning for: fewer builders at a time when a companion session is also running on the same account. | none |
+| 34 | The input effects needed a page of real controls to be seen at all, and a way to act on them from a script (switch one on, move a slider, focus a field). | *done*: `?fields=` on the solo page builds sample controls carrying a tag, and steps of the screenshot script take `dom` actions. `SOLO_SCALE=2` photographs at two device pixels per pixel, without which nothing 28 pixels tall can be judged. | none |
+| 35 | In an address, `+` is a space: `fields=mini+rain` arrived as one name with a space in it, and the sample controls got ids no selector could reach. | *done*: the solo page splits on either. | none |
+| 36 | `tests/library.test.ts` read every entry of an effect's folder as a file and failed on the first subfolder. Found by a builder, not by me. | *done*: it skips what is not a file. | none |
+| 37 | A switch that was just clicked off kept its picture: the click gives the checkbox the focus, and `FieldSet` counted `focus` as showing. My rule, my test asserting it, and no picture of mine could have shown it, because the screenshot script's last action always leaves the focus where it was. A builder found it by photographing off and on. | *done*: `off` wins over `focus` (an effect that wants the focus reads `words.focus`), with a test that says why. | none |
+| 38 | I told the owner a pull request was merged with all of the input-effects work on `main`. It had been merged the day before with one commit; later pushes to the branch went nowhere, the merge call answered "merged" for the pull request that was already closed, and I had rewritten that closed pull request's title and description to describe work it did not contain. | *done (practice)*: before merging, read the pull request's state and head commit; after merging, check that the branch tip is an ancestor of `main` before saying so. A branch whose pull request has merged gets a new pull request. | the owner, told something untrue for some minutes |
+| 39 | Two builders wrote a screenshot into the filesystem root: `"$OUT/name"` with the variable empty. | *done*: the script refuses a prefix that lands in the root. | none |
+| 40 | With eight tags and four kinds of sample control, the solo page's last row is below the 800 pixel picture and silently missing from it. | *done*: the script marks a sample that is outside the picture where it lists them. | none |
+| 41 | A miniature's `pulse` is one number for every event of its effect and carries no payload: the small rain eater cannot tell "ate a drop" from "burst", and small click sparks cannot burst where the press was. `kick` is likewise a press and a switch-on in one (the small snowdrift loses half its snow when switched on), and the signal carries no frame budget. | *proposed*: the event's type, a separate `turnedOn`, and the budget in `MiniSignal`, when a miniature needs them. Not done: the pictures read well without. | none |
+| 42 | A message sent to a builder that was still running reached it attached to a tool result. It rightly did not take that for its coordinator and carried on to the end of its brief. A running builder cannot be hurried. | *proposed (practice)*: put the limits (rounds of pictures, what "done" is) in the brief; do not plan on steering mid-run. Commit a checkpoint of its files instead of waiting, once they compile and photograph well. | about fifteen minutes of the owner waiting |
 
 ## What worked, to keep
 
@@ -88,10 +101,27 @@ decide.
   reading, not writing.
 - **Asking every agent for a friction list.** Most of this file came from them.
 
+## Checked afterwards, on a real GPU
+
+A companion session on the PC (RTX 4070 SUPER, hardware WebGL through Direct3D 11, a 60 Hz
+display) measured the branch before it was merged:
+
+- All twelve effects, six combinations and the seven lab scenes hold 60 frames per second at a
+  full budget, at 1920×1080 and on a 5120×2880 canvas. No frame over 17.6 ms after start-up,
+  including bursts, impacts, pops and the collapse. No console errors, nothing wrong in the
+  screenshots.
+- A frame costs 1.2 to 2.0 ms per effect at 1080p and 3.5 to 4.7 ms at 5K (the nebula is the
+  dearest). All twenty together cost 10 to 12 ms, about 7 ms of it JavaScript: that fits 60 Hz
+  and would not fit 144 Hz.
+- It found the governor reading page start-up as a slow machine (79 to 88% budget for the first
+  eight to ten seconds of every load). That is engine code and has its own fix (`warmupMs`).
+- With the browser's frame-rate cap removed, snow at 5K and confetti showed stalls that do not
+  appear at 60 Hz. Probably an artefact of that mode; unchecked on a 120 or 144 Hz display.
+- `g` moves the singularity slowly: a drift toward the pointer, not a summons.
+
+The documentation site was brought up to date from the merged `main` and deployed the same day.
+
 ## Not checked
 
-- Frame rates and motion on a real GPU. Everything above was judged from still frames rendered
-  in software. A companion session on the PC was started for this; its report is separate.
-- The documentation site itself: the kit was compiled against this repository, not run on the
-  site.
-- A phone, a screen reader, forced colours.
+- How the motion looks to the eye. Both sessions judged from frame timings and still frames.
+- Anything above 60 Hz, a weak GPU, a phone, a screen reader, forced colours.

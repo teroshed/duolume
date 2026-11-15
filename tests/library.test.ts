@@ -35,8 +35,13 @@ function effectClassesOnDisk(): string[] {
         if (!statSync(directory).isDirectory()) {
             continue;
         }
+        // An effect's class is in a file directly in its folder; subfolders (a table of miniatures) hold no effects.
         for (const file of readdirSync(directory)) {
-            for (const match of readFileSync(resolve(directory, file), 'utf8').matchAll(/export class (\w+) extends Effect\b/g)) {
+            const path = resolve(directory, file);
+            if (!statSync(path).isFile()) {
+                continue;
+            }
+            for (const match of readFileSync(path, 'utf8').matchAll(/export class (\w+) extends Effect\b/g)) {
                 classes.push(match[1]);
             }
         }
@@ -75,18 +80,20 @@ describe('the effect library is listed everywhere it should be', () => {
         expect(listed.filter((effect) => !new RegExp(`^\\s+${effect.effectName}: \\w+;`, 'm').test(registry)).map((effect) => effect.effectName)).toEqual([]);
     });
 
-    test('every effect is in the lab: EFFECT_NAMES, a checkbox, and the manager', () => {
+    test('every effect is in the lab: a scene effect on the main page, an input effect on the Inputs page', () => {
         const intensity = read('lab/intensity.ts');
         const names = intensity.slice(intensity.indexOf('EFFECT_NAMES = ['), intensity.indexOf('] as const'));
         const page = read('lab/index.html');
         const main = read('lab/main.ts');
+        const inputs = read('lab/inputs.ts');
+        const named = (className: string, source: string): boolean => new RegExp(`\\bnew ${className}\\(`).test(source);
         const missing = listed
-            .filter(
-                (effect) =>
-                    !names.includes(`'${effect.effectName}'`) ||
-                    !page.includes(`data-effect="${effect.effectName}"`) ||
-                    !new RegExp(`\\b${effect.className}\\b`).test(main),
-            )
+            .filter((effect) => {
+                // The main page: listed in EFFECT_NAMES, given a checkbox, and added to the manager.
+                const onMain = names.includes(`'${effect.effectName}'`) && page.includes(`data-effect="${effect.effectName}"`) && named(effect.className, main);
+                // The Inputs page: added to its manager. Effects that draw inside controls live there.
+                return !onMain && !named(effect.className, inputs);
+            })
             .map((effect) => effect.effectName);
         expect(missing).toEqual([]);
     });
