@@ -20,7 +20,7 @@ export class PageWalls {
     /** On a plain ledge: the chance per millisecond that a drop inside the element stops where it is. */
     public static readonly INSIDE_CHANCE_PER_MS = 0.0015;
 
-    private readonly stop: PageStop = { rect: { name: '', x: 0, y: 0, width: 0, height: 0, visible: false, tags: [], numbers: {} }, edge: 'top' };
+    private readonly stop: PageStop = { rect: { name: '', x: 0, y: 0, width: 0, height: 0, visible: false, radius: 0, tags: [], numbers: {} }, edge: 'top' };
 
     /** Returns where the droplet stopped, or undefined if it carries on. */
     public meet(droplet: Droplet, elements: readonly AnchorRect[], timeDelta: number): PageStop | undefined {

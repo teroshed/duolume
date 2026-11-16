@@ -16,6 +16,8 @@
 //                A step may also act on the page before its ticks, with "dom": a list of
 //                { "check": ["#id", true] }, { "click": "#id" }, { "focus": "#id" }, { "blur": true },
 //                { "value": ["#id", 30] } (a range input), { "type": ["#id", "text"] }.
+//                "wait": 120 waits that many real milliseconds before the step's ticks: page
+//                pieces (host.page) fade on the real clock, and each step draws one frame.
 //   extra-query  appended to the address: "seed=3&ledges=0&budget=0.4&options=<url-encoded JSON>",
 //                and for effects that draw inside inputs "fields=liquid,mini+rain" (sample inputs
 //                carrying those tags; their names and places are printed) and "samples=switch,off".
@@ -139,6 +141,10 @@ for (const step of steps) {
     const started = Date.now();
     for (const action of step.dom ?? []) {
         await act(action);
+    }
+    if (step.wait) {
+        // Real milliseconds, for what runs on the real clock (a frame fading in on the page).
+        await page.waitForTimeout(step.wait);
     }
     await page.evaluate(({ ticks, input }) => window.solo.step(ticks, input || {}), {
         ticks: step.ticks ?? 0,

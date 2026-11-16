@@ -9,6 +9,7 @@ export { Compositor, type CompositorOptions, type Surfaces } from './Compositor'
 export { InputState, normalizeKey } from './Input';
 export { attachPageRipples, type PageRipplesOptions } from './dom/PageRipples';
 export { attachFieldTags, type FieldTags, type FieldTagsOptions } from './dom/FieldTags';
+export { PageLayer, type Frame, type PageBox, type Picture } from './dom/PageLayer';
 export { GradientType, gradientAtPosition } from './Gradients';
 export { randomNumber, distanceV2, clamp, lerp, smoothstep, approach, mixColor, rgbToHex } from './math';
 export type {

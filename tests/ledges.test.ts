@@ -91,7 +91,7 @@ describe('the stage and numbered tags', () => {
 
 /** A ledge from x 0 to 100 and y 10 to 30. */
 function ledge(tags: string): AnchorRect {
-    return { name: 'shelf', x: 0, y: 10, width: 100, height: 20, visible: true, ...readTags(tags) };
+    return { name: 'shelf', x: 0, y: 10, width: 100, height: 20, visible: true, radius: 0, ...readTags(tags) };
 }
 
 /** A drop whose bottom has just crossed the ledge's top edge from above. */

@@ -1,6 +1,7 @@
 import type { Container } from 'pixi.js';
 import type { Group } from 'three';
 import type { Surfaces } from './Compositor';
+import type { PageLayer } from './dom/PageLayer';
 import type { Stage } from './Stage';
 import type { EffectContext, TickContext, TimedContext } from './types';
 
@@ -15,6 +16,8 @@ export interface EffectHost {
     readonly pixiFront: Container;
     /** This effect's Three.js group. */
     readonly three: Group;
+    /** This effect's place on the page itself, sharp at any screen: frames and pictures on page elements. Call it in `onRender`. Made the first time it is used. */
+    readonly page: PageLayer;
     readonly stage: Stage;
     /** The other renderer's pixels, for shaders: Three.js materials can sample the Pixi layer. */
     readonly surfaces: Surfaces;

@@ -17,6 +17,7 @@ export class BlankEffect extends Effect {
         // Create what you draw.
         //   this.host.pixi   your Pixi container (behind the 3D scene)
         //   this.host.three  your Three.js group
+        //   this.host.page   the page itself, sharp: page.frame(anchor) and page.picture(anchor, …), called in onRender
         //   this.host.stage  stage pixels ↔ 3D positions, and the page's anchors
     }
 
