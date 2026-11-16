@@ -19,7 +19,7 @@ export interface RainOptions {
     groundBand?: number;
     /** Overall strength of the layer, 0..1. Lower it when text sits on top. */
     opacity?: number;
-    /** Let rain meet elements tagged "ledge": stop on them, pool, drip. False ignores the page. Default true. */
+    /** Let rain meet elements tagged "ledge" (or `ledge-N`, N the percent that falls through): stop on them, pool, drip. False ignores the page. Default true. */
     pageInteraction?: boolean;
 }
 
@@ -34,7 +34,9 @@ const DOT_TEX = 16;
  *   - `rainEater` (a Three.js effect): droplets within its eat distance are eaten, exactly
  *     as before; the rain reports them with a `rain:eaten` event so the eater can react.
  *   - the force field: attraction, wind and shock rings from any effect bend the rain.
- *   - the page: DOM anchors tagged "ledge" are walls for half the droplets (see PageWalls).
+ *   - the page: DOM anchors tagged a plain "ledge" are walls for half the droplets (see PageWalls).
+ *     A number on the tag is the percent that falls through: `ledge-0` stops every droplet,
+ *     `ledge-100` none. Each droplet rolls once at birth, so it never flickers on one ledge.
  *     Stopped water pools on the element (see PageWater), hangs from its underside and
  *     runs down its sides, then falls again.
  */
@@ -57,7 +59,7 @@ export class Rain extends Effect<RainContext> {
     public static readonly MAX_DROP_ACCELERATION = 0.001;
     public static readonly DROP_COUNT = 500;
     public static readonly PARTICLES_PER_FALLING_DROP = 5;
-    /** Share of droplets that meet page elements; the rest pass behind them. */
+    /** Share of droplets that meet a plain `ledge`; the rest pass behind it. A numbered `ledge-N` ignores this. */
     public static readonly INTERACTIVE_SHARE = 0.5;
 
     private readonly drops: ParticleSet<Droplet>;

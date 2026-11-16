@@ -15,7 +15,7 @@ export interface BubblesOptions {
     maxRadius?: number;
     /** Raindrops can pop them (when the `rain` effect is on the page). Default `RAIN_POPS` (true). */
     rainPops?: boolean;
-    /** Bump into page elements tagged `ledge` and slide round them. False ignores the page. Default `PAGE_INTERACTION` (true). */
+    /** Bump into page elements tagged `ledge` and slide round them (`ledge-N` lets N percent rise through). False ignores the page. Default `PAGE_INTERACTION` (true). */
     pageInteraction?: boolean;
 }
 
@@ -45,6 +45,8 @@ interface Bubble {
     slide: number;
     /** Milliseconds until it pops; Infinity until something sets it off. */
     fuse: number;
+    /** Random 0..1, fixed at birth: a `ledge-N` element lets it rise through when `roll * 100` is below N. */
+    roll: number;
 }
 
 interface Pop {
@@ -65,7 +67,8 @@ interface Pop {
  * What it listens to:
  *   - the force field, generously: wind carries them, attractors pull them in, a shock ring
  *     throws them and bursts the small ones on its front.
- *   - the page: elements tagged `ledge` (see `pageInteraction`).
+ *   - the page: elements tagged `ledge` (see `pageInteraction`). On `ledge-N`, N percent of the
+ *     bubbles rise through it as if it were not there, decided once per bubble.
  *   - a press of the pointer on a bubble pops it.
  *   - `rain` (a Pixi effect): each droplet that touches a bubble has a small chance of popping it.
  *   - `crystal:exploded`, `rainEater:exploded`, `lightning:strike`, `meteor:impact`,
@@ -242,6 +245,7 @@ export class Bubbles extends Effect<BubblesContext> {
             clearFor: 0,
             slide: 0,
             fuse: Infinity,
+            roll: 0,
         };
         // Bigger bubbles rise a bit faster. The lift is what drag balances at that speed.
         const size = clamp((radius - this.minRadius) / Math.max(1, this.maxRadius - this.minRadius), 0, 1);
@@ -256,6 +260,7 @@ export class Bubbles extends Effect<BubblesContext> {
         bubble.age = 0;
         bubble.lifespan = randomNumber(Bubbles.LIFE_MIN_MS, Bubbles.LIFE_MAX_MS);
         bubble.phase = Math.random();
+        bubble.roll = Math.random();
         bubble.swayRate = (Math.PI * 2) / randomNumber(2400, 5200);
         bubble.squash = 0;
         bubble.jiggle = 0;
@@ -388,7 +393,8 @@ export class Bubbles extends Effect<BubblesContext> {
 
         for (let i = 0; i < ledges.length; i++) {
             const rect = ledges[i];
-            if (!touch(state.x, state.y, state.radius, rect, contact)) {
+            // A plain ledge stops every bubble; `ledge-N` lets N percent of them rise through it.
+            if (bubble.roll * 100 < (rect.numbers.ledge ?? 0) || !touch(state.x, state.y, state.radius, rect, contact)) {
                 continue;
             }
             if (contact.ny > 0.6) {

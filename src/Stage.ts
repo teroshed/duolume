@@ -10,8 +10,39 @@ export interface AnchorRect {
     height: number;
     /** Intersects the viewport. */
     visible: boolean;
-    /** Free-form tags from `data-fx-tags`, e.g. "ledge" so rain lands on it. */
+    /** Free-form tags from `data-fx-tags`, e.g. "ledge" so rain lands on it. A numbered tag like `ledge-30` is listed twice, as `ledge-30` and as `ledge`. */
     tags: readonly string[];
+    /** The number a tag ends in, by the tag's plain name: `ledge-30` gives `numbers.ledge === 30`. For a ledge it is the percent of falling things that fall through it. */
+    numbers: Readonly<Record<string, number | undefined>>;
+}
+
+/** A tag that ends in a dash and a number, like `ledge-30` or `glow-2.5`. */
+const NUMBERED_TAG = /^(.+)-(\d+(?:\.\d+)?)$/;
+
+/**
+ * Read a `data-fx-tags` value. Tags are separated by spaces. A tag that ends in a number, like
+ * `ledge-30`, is also listed under its plain name (`ledge`), so code that looks for `ledge` finds
+ * it, and its number goes into `numbers` (the last one wins if a name is numbered twice).
+ */
+export function readTags(text: string): { tags: string[]; numbers: Record<string, number | undefined> } {
+    const tags: string[] = [];
+    const numbers: Record<string, number | undefined> = {};
+    for (const tag of text.split(/\s+/)) {
+        if (tag === '') {
+            continue;
+        }
+        if (!tags.includes(tag)) {
+            tags.push(tag);
+        }
+        const numbered = NUMBERED_TAG.exec(tag);
+        if (numbered) {
+            numbers[numbered[1]] = Number(numbered[2]);
+            if (!tags.includes(numbered[1])) {
+                tags.push(numbered[1]);
+            }
+        }
+    }
+    return { tags, numbers };
 }
 
 interface AnchorEntry {
@@ -87,11 +118,11 @@ export class Stage {
         return distance / Math.max(1, distance - z);
     }
 
-    /** Track a DOM element under a name. Its rectangle is refreshed once per frame. */
+    /** Track a DOM element under a name. Its rectangle is refreshed once per frame. Tags are read as `readTags` reads them. */
     public observe(name: string, element: Element, tags: readonly string[] = []): void {
         this.anchors.set(name, {
             element,
-            rect: { name, x: 0, y: 0, width: 0, height: 0, visible: false, tags },
+            rect: { name, x: 0, y: 0, width: 0, height: 0, visible: false, ...readTags(tags.join(' ')) },
             auto: false,
         });
         this.anchorList = Array.from(this.anchors.values(), (entry) => entry.rect);
@@ -110,8 +141,7 @@ export class Stage {
             if (!name) {
                 continue;
             }
-            const tags = (element.getAttribute('data-fx-tags') ?? '').split(/\s+/).filter(Boolean);
-            this.observe(name, element, tags);
+            this.observe(name, element, [element.getAttribute('data-fx-tags') ?? '']);
         }
     }
 
@@ -144,17 +174,17 @@ export class Stage {
                 continue;
             }
             found.add(name);
-            const tags = (element.getAttribute('data-fx-tags') ?? '').split(/\s+/).filter(Boolean);
+            const read = readTags(element.getAttribute('data-fx-tags') ?? '');
             const existing = this.anchors.get(name);
             if (existing && !existing.auto) {
                 continue;
             }
-            if (existing && existing.element === element && existing.rect.tags.join(' ') === tags.join(' ')) {
+            if (existing && existing.element === element && existing.rect.tags.join(' ') === read.tags.join(' ')) {
                 continue;
             }
             this.anchors.set(name, {
                 element,
-                rect: { name, x: 0, y: 0, width: 0, height: 0, visible: false, tags },
+                rect: { name, x: 0, y: 0, width: 0, height: 0, visible: false, ...read },
                 auto: true,
             });
         }
@@ -176,7 +206,8 @@ export class Stage {
 
     /**
      * The anchors that carry a tag and are on screen right now, e.g. `stage.tagged('ledge')`
-     * for the page elements things can land on. The list is rebuilt once per frame, not per call.
+     * for the page elements things can land on (it finds `ledge-30` too). The list is rebuilt
+     * once per frame, not per call.
      */
     public tagged(tag: string): readonly AnchorRect[] {
         let list = this.taggedCache.get(tag);

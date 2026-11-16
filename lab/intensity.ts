@@ -125,12 +125,12 @@ export const SCENE_PRESETS: Record<SceneName, ScenePreset> = {
     },
     winter: {
         label: 'Winter',
-        summary: 'Snow that piles up on the panel and shelves, under ribbons of light and a cloud that glows when a crystal breaks. Blow it sideways with the arrow keys.',
+        summary: 'Snow that piles up on the panel and the ledge-0 shelf, under ribbons of light and a cloud that glows when a crystal breaks. Blow it sideways with the arrow keys.',
         effects: on('wind', 'snow', 'nebula', 'crystals', 'auroraRibbons'),
     },
     sea: {
         label: 'Rising tide',
-        summary: 'Rain raises a sea along the bottom, bubbles rise and slide under the shelves, and a serpent follows the pointer. Press B to blow bubbles.',
+        summary: 'Rain raises a sea along the bottom, bubbles rise and slide under the panel and the ledge-0 shelf, and a serpent follows the pointer. Press B to blow bubbles.',
         effects: on('wind', 'rain', 'tide', 'bubbles', 'serpent'),
     },
     party: {

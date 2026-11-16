@@ -31,7 +31,7 @@ export interface ConfettiOptions {
     interval?: number;
     /** Downward pull in px/ms², 0 to 0.01. Default `GRAVITY` (0.0007). */
     gravity?: number;
-    /** Let pieces come to rest on elements tagged "ledge". False ignores the page. Default true. */
+    /** Let pieces come to rest on elements tagged "ledge" (`ledge-N` lets N percent fall through). False ignores the page. Default true. */
     pageInteraction?: boolean;
 }
 
@@ -48,7 +48,8 @@ export interface ConfettiOptions {
  *   - the force field: wind carries the fall, shock rings fling pieces and set them spinning,
  *     and knock resting pieces back into the air.
  *   - presses: pieces lying within reach of a press jump up again.
- *   - the page: elements tagged "ledge" catch falling pieces on their top edge.
+ *   - the page: elements tagged "ledge" catch falling pieces on their top edge. A number on
+ *     the tag is the percent that falls through (`ledge-100` catches none), decided once per piece.
  *
  * What it tells the others: its context (`pieces`, `resting`) and `page:hit` with
  * `kind: 'confetti'` when a piece lands on an element (at most one per element every 300 ms).
@@ -99,6 +100,8 @@ export class Confetti extends Effect<ConfettiContext> {
     private readonly restDX = new Float32Array(MAX_PIECES);
     private readonly restYaw = new Float32Array(MAX_PIECES);
     private readonly restTilt = new Float32Array(MAX_PIECES);
+    /** Random 0..1, fixed at birth: a `ledge-N` element lets the piece fall through when `roll * 100` is below N. */
+    private readonly roll = new Float32Array(MAX_PIECES);
     /** The element a piece lies on, or null for the floor. */
     private readonly restOn: (AnchorRect | null)[] = new Array<AnchorRect | null>(MAX_PIECES).fill(null);
     private count = 0;
@@ -106,7 +109,7 @@ export class Confetti extends Effect<ConfettiContext> {
     private readonly floatArrays: (Float32Array | Float64Array)[] = [
         this.px, this.py, this.pz, this.vx, this.vy, this.vz, this.flip, this.flipRate, this.flipBase,
         this.yaw, this.yawRate, this.axis, this.w, this.h, this.timer, this.settle, this.restDX,
-        this.restYaw, this.restTilt,
+        this.restYaw, this.restTilt, this.roll,
     ];
 
     private mesh!: InstancedMesh<PlaneGeometry, ShaderMaterial>;
@@ -269,6 +272,7 @@ export class Confetti extends Effect<ConfettiContext> {
         this.yaw[n] = Math.random() * Math.PI * 2;
         this.yawRate[n] = randomNumber(-0.0016, 0.0016);
         this.axis[n] = Math.random() * Math.PI;
+        this.roll[n] = Math.random();
         this.w[n] = randomNumber(7.2, 15.6);
         this.h[n] = randomNumber(4.8, 9.6);
         this.colour[n] = Math.floor(Math.random() * this.palette.length);
@@ -409,7 +413,9 @@ export class Confetti extends Effect<ConfettiContext> {
         const x = this.px[i];
         const y = this.py[i];
         for (const rect of ledges) {
-            if (lastY < rect.y && y >= rect.y && x >= rect.x && x <= rect.x + rect.width) {
+            // A plain ledge catches every piece; `ledge-N` lets N percent of them fall through.
+            const through = this.roll[i] * 100 < (rect.numbers.ledge ?? 0);
+            if (!through && lastY < rect.y && y >= rect.y && x >= rect.x && x <= rect.x + rect.width) {
                 this.py[i] = rect.y;
                 this.rest(i, rect, tick.time);
                 const last = this.lastHit.get(rect.name) ?? -Infinity;

@@ -29,6 +29,7 @@ export class BlankEffect extends Effect {
         //   Say something happened:   tickContext.emit('blank:happened', { x, y });
         //   Hear what happened:       for (const event of tickContext.events('rain:eaten')) { … }
         //   Land on the page:         for (const ledge of tickContext.stage.tagged('ledge')) { … }
+        //   How much falls through:   ledge.numbers.ledge   (30 for `ledge-30`, undefined for a plain ledge)
 
         // Whatever you return here is what other effects get from tickContext.read('blank').
         return this.publish({});

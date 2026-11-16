@@ -12,7 +12,7 @@ export interface MeteorsOptions {
     intervalMax?: number;
     /** Multiplier on flight speed (1 is about 0.7 to 1.2 pixels per millisecond), 0.1..4. Default 1 (`Meteors.SPEED`). */
     speed?: number;
-    /** True: a meteor can land on the top edge of an element tagged `ledge`. Default true (`Meteors.PAGE_INTERACTION`). */
+    /** True: a meteor can land on the top edge of an element tagged `ledge` (`ledge-N` lets N percent through). Default true (`Meteors.PAGE_INTERACTION`). */
     pageInteraction?: boolean;
     /** True: a big impact (power above 0.6) sends one shock ring through the force field; the flash happens either way. Default true (`Meteors.SHOCK`). */
     shock?: boolean;
@@ -33,6 +33,8 @@ interface Meteor {
     /** 1 while flying; after an impact it falls to 0 and the tail fades with it. */
     fade: number;
     landed: boolean;
+    /** Random 0..1, fixed at birth: a `ledge-N` element lets it fall through when `roll * 100` is below N. */
+    roll: number;
 }
 
 interface Scar {
@@ -52,7 +54,8 @@ interface Scar {
  * - the force field (acceleration at the head, scaled down: heavy things turn slowly)
  * - the `wind` context, when a meteor is sent (more of them travel the way it blows)
  * - the `rainEater` and `singularity` contexts (a meteor that enters their body lands there)
- * - elements tagged `ledge` (a meteor crossing the top edge from above lands on it)
+ * - elements tagged `ledge` (a meteor crossing the top edge from above lands on it; on `ledge-N`,
+ *   N percent of meteors pass through, decided once per meteor)
  * - the pointer, for the `m` key only
  *
  * What it tells the others: the `meteors` context (in flight, impacts so far), a `meteor:impact`
@@ -254,6 +257,7 @@ export class Meteors extends Effect<MeteorsContext> {
             trailHead: points - 1,
             fade: 1,
             landed: false,
+            roll: Math.random(),
         };
         // The tail already trails behind it when it appears, as if it had been falling for a while.
         const step = 1000 / 60;
@@ -303,7 +307,8 @@ export class Meteors extends Effect<MeteorsContext> {
         // 2. The top edge of a ledge, crossed from above.
         if (this.pageInteraction && segY > 0) {
             for (const rect of tick.stage.tagged('ledge')) {
-                if (fromY < rect.y && m.y >= rect.y) {
+                // A plain ledge stops every meteor; `ledge-N` lets N percent of them through.
+                if (fromY < rect.y && m.y >= rect.y && m.roll * 100 >= (rect.numbers.ledge ?? 0)) {
                     const t = (rect.y - fromY) / segY;
                     const x = fromX + segX * t;
                     if (t < bestT && x >= rect.x && x <= rect.x + rect.width) {

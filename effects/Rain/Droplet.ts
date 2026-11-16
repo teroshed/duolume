@@ -24,8 +24,10 @@ export class Droplet extends Particle {
 
     /** Where the left side was before this tick's motion, for wall crossings. */
     public previousX = 0;
-    /** Only interactive drops meet page elements; the rest pass behind them. Rolled at birth. */
+    /** Only interactive drops meet plain `ledge` elements; the rest pass behind them. Rolled at birth. */
     public interactive = false;
+    /** Random 0..1, fixed at birth: a `ledge-N` element lets this drop through when `roll * 100` is below N, and stops it otherwise. */
+    public roll = Math.random();
     /** Chance of being stopped when first crossing into an element. Personal, fixed at birth. */
     public edgeChance = 0;
     /** Name of the element the head is currently over, so a crossing is rolled once. */

@@ -84,6 +84,9 @@ On the documentation site (`engine-docs`, a separate repository that carries a c
 - Colour comes from the theme (`tick.theme`, `timed.theme`), read every frame.
 - It is a background behind page text: modest alpha, no large bright fills.
 - Ignore presses when `tick.mouseOnInteractive` is true.
+- Something that falls and lands on ledges honours `ledge-N`: give each piece one `roll =
+  Math.random()` at birth and let it through a ledge when `roll * 100 < (rect.numbers.ledge ??
+  yourDefault)`. Things that perch, grow or shelter on ledges ignore the number.
 - Whole-picture flashes go through `host.surfaces.flash.value += x` in `onRender`, so the
   viewer-comfort setting scales them.
 - Shock rings are scarce (four at once). One per big, rare moment; never per particle.

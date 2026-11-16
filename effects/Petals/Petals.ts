@@ -74,6 +74,7 @@ const GREEN = 0x8fcf6a;
  *   - the force field (`tick.forces.sample`): the wind sways the plants and carries the falling
  *     petals; a shock ring scatters them.
  *   - elements tagged `ledge`: a falling petal that reaches the top of one rests there a second.
+ *     On `ledge-N`, N percent of the petals fall through, decided once per petal.
  * It tells the others how many elements it is drawing in and how many petals are falling.
  * No forces, no events, no keys.
  */
@@ -114,6 +115,8 @@ export class Petals extends Effect<PetalsContext> {
     private readonly shade = new Float32Array(Petals.MAX_PETALS);
     /** Milliseconds left resting on a ledge; 0 while falling. */
     private readonly rest = new Float32Array(Petals.MAX_PETALS);
+    /** Random 0..1, fixed at birth: a `ledge-N` element lets the petal fall through when `roll * 100` is below N. */
+    private readonly roll = new Float32Array(Petals.MAX_PETALS);
 
     constructor(options: PetalsOptions = {}) {
         super();
@@ -392,6 +395,7 @@ export class Petals extends Effect<PetalsContext> {
         this.size[k] = node.size * (0.5 + r() * 0.12);
         this.shade[k] = r();
         this.rest[k] = 0;
+        this.roll[k] = r();
     }
 
     // ---- the petals in the air ---------------------------------------------------
@@ -421,6 +425,10 @@ export class Petals extends Effect<PetalsContext> {
                 this.spin[i] += this.spinRate[i] * dt;
                 this.rot[i] += this.spinRate[i] * dt * 0.35 + sway * 0.002 * dt;
                 for (const ledge of ledges) {
+                    // A plain ledge catches every petal; `ledge-N` lets N percent of them fall through.
+                    if (this.roll[i] * 100 < (ledge.numbers.ledge ?? 0)) {
+                        continue;
+                    }
                     if (prevY < ledge.y && this.py[i] >= ledge.y && this.px[i] >= ledge.x && this.px[i] <= ledge.x + ledge.width && this.age[i] < 2400) {
                         this.py[i] = ledge.y - 0.5;
                         this.rest[i] = 1100;
@@ -455,6 +463,7 @@ export class Petals extends Effect<PetalsContext> {
         this.size[i] = this.size[last];
         this.shade[i] = this.shade[last];
         this.rest[i] = this.rest[last];
+        this.roll[i] = this.roll[last];
     }
 
     // ---- drawing -----------------------------------------------------------------

@@ -153,7 +153,18 @@ plane `z = 0` matches the Pixi layer pixel for pixel (`stage.toWorld(x, y, z)`,
 `Stage` also tracks DOM elements marked `data-fx-anchor="name"` (optional
 `data-fx-tags="ledge"`), so effects can react to the page: rain lands on tagged elements and
 crystal shards are stopped by them. `tick.stage.tagged('ledge')` is the list on screen now;
-`tick.stage.anchor('name')` is one element's rectangle. The manager keeps following its
+`tick.stage.anchor('name')` is one element's rectangle.
+
+A tag can end in a number: `data-fx-tags="ledge-30"`. The element still counts as `ledge`
+(`tagged('ledge')` and `tags.includes('ledge')` find it), and the number is on the rectangle as
+`numbers.ledge` (30). For a ledge it is the percent of falling things that fall through:
+`ledge-0` is solid, `ledge-100` stops nothing that falls, but birds still perch on it, grass
+still grows on it and fireflies still shelter under it. Rain, snow, confetti, petals, meteors,
+bubbles and crystal shards honour it; each piece rolls one number at birth and passes when
+`roll * 100` is below the ledge's number, so it never flickers. A plain `ledge` keeps each
+effect's own rule.
+
+The manager keeps following its
 `anchors` root: elements added, removed or retagged after `create` are picked up before the next
 frame. `stage.observe(name, element, tags)` adds one by hand.
 
@@ -316,7 +327,8 @@ key belongs to which effect.
 `effects/Crystal/CrystalBody.ts` is not an effect but a building block shared by `RainEater`
 and `Crystals`: a glass solid whose facets are particles. When it breaks, each facet flies
 on its own, and half of them notice the page: an element tagged `ledge` stops a shard at its
-edge with a 20–50% chance, and anywhere inside it with a small chance per tick. A stopped
+edge with a 20–50% chance, and anywhere inside it with a small chance per tick. On a
+numbered `ledge-N` every shard plays: N percent pass through and the rest stop at the edge. A stopped
 shard stays on the element, then flies home; until it does, the crystal has a hole there.
 Rain follows the same wall rule (`effects/Rain/PageWalls.ts`), and the water it leaves pools,
 hangs from the element's underside and runs down its sides (`effects/Rain/PageWater.ts`).

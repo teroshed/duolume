@@ -14,7 +14,7 @@ single effects afterwards without leaving the scene.
 | --- | --- | --- |
 | Storm (default) | what the intensity level says (the table below) | the level slider; Space, E, W, S, the arrows |
 | Night meadow | wind, meadow, fireflies, flock, constellation | blow with the arrows and watch the grass; wait for the fireflies to blink together and the birds to land on the panel |
-| Winter | wind, snow, nebula, crystals, ribbons | let the snow pile up on the panel and shelves, then blow it off; break a crystal to light the cloud |
+| Winter | wind, snow, nebula, crystals, ribbons | let the snow pile up on the panel and the ledge-0 shelf, then blow it off; break a crystal to light the cloud |
 | Rising tide | wind, rain, tide, bubbles, serpent | B blows bubbles from the pointer; more rain raises the sea; the serpent follows the pointer |
 | Celebration | wind, fireworks, confetti, click sparks, ribbons | C fires both confetti cannons; Space bursts the shells |
 | Deep space | wind, black hole, rain, meteors, constellation, click sparks | G moves the black hole to the pointer; M sends a meteor there |
@@ -93,12 +93,16 @@ registered as tools in `webmcp.ts`: `lab_get_state`, `lab_set_scene`, `lab_set_i
 
 ## The page as part of the scene
 
-The control panel and the two shelves are tagged `data-fx-tags="ledge"`. Rain lands on them,
-and when a crystal breaks, half its shards can be stopped by them: at an edge with a 20–50%
-chance, or anywhere inside with a small chance per tick. Each stop plays a ripple on the
+The control panel is tagged `data-fx-tags="ledge"`, and the two shelves `ledge-0` and
+`ledge-100`: the number is the percent of falling things that fall through. Rain lands on the
+panel and the `ledge-0` shelf and falls through the `ledge-100` one. When a crystal breaks,
+half its shards can be stopped by the panel (at an edge with a 20–50% chance, or anywhere
+inside with a small chance per tick); every shard stops at the edge of the `ledge-0` shelf
+and none on the `ledge-100` one. Each stop plays a ripple on the
 element (`attachPageRipples`). Stopped shards fly home after about five seconds. The later
 effects use the same tag: snow and confetti settle on them, grass grows on them, birds
-perch on them, bubbles slide along their undersides.
+perch on them, bubbles slide along their undersides. Snow, confetti and bubbles pass through
+the `ledge-100` shelf too; grass and birds do not care about the number.
 
 ## Saved state
 
