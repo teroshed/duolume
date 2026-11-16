@@ -298,11 +298,57 @@ machine being slow.
 Using a `ParticleSet`: call `govern(tick)` at the start of every tick, spawn while
 `canSpawn()`, and `sweep(tick)` at the end. Without `govern`, nothing ever spawns.
 
+## How much and how rich: intensity, detail and levels
+
+Two numbers decide how heavy a scene is. **Intensity** is how much of an effect there is. A
+**level** is how rich it looks. Every effect has an intensity. Only some effects have levels.
+
+```ts
+manager.setIntensity('rain', 0.4);                // a little rain
+manager.setIntensity({ rain: 0.4, meadow: 1 });   // a scene is a plain object
+manager.setIntensity(0.6);                        // the whole scene, multiplied into each
+manager.setDetail(0.5);                           // how rich the whole scene may look
+manager.setLevel('meadow', MeadowLevel.Lines);    // fix one effect's look
+manager.setLevel('meadow', undefined);            // give it back to the machine
+```
+
+**Intensity** is 0 to 1, default 1, for every effect. The effect reads its own, times the
+scene's, as `tick.intensity` (and `timed.intensity` while drawing). A `ParticleSet` already
+allows `capacity × budget × intensity`, so "0.4 rain" is 40 percent of the drops with no change
+to `Rain`, and the surplus leaves with its exit. Zero is off, the same as
+`setEffectEnabled(name, false)`; raising it again switches the effect back on.
+`getIntensity(name)` reads back what was set for one effect, `getIntensity()` the scene's.
+
+**Levels** are an effect's looks, cheapest first, declared as a numeric enum. The meadow has four:
+
+| `MeadowLevel` | What it draws |
+| --- | --- |
+| `Lines` | Each blade is one straight line. |
+| `Blades` | Curved blades, standing still. |
+| `Wind` | Curved blades that lean with the wind. |
+| `Full` | Shaded blades, wind and everything. |
+
+Unless the page fixes a look, the engine picks it from the scene's **detail** (0 to 1, default 1,
+`setDetail`) times the frame budget. Full detail on a machine that keeps up gives the richest
+look. A machine that struggles steps down by itself, and back up when there is room. A look
+never flickers: it moves one step at a time, stays at least `LEVEL_HOLD_MS` (1.5 s) after each
+move, and steps up only once there is `LEVEL_MARGIN` (0.1) to spare.
+
+A page fixes a look with the effect's option, `new Meadow({ level: MeadowLevel.Lines })`, or at
+any time with `setLevel`, which wins over the option. `manager.getLevels()` lists every effect
+that has looks: the look it draws now (number and name), all its look names, and whether it is
+pinned.
+
+**An effect with no enum has one look.** It ignores detail, `setLevel` on it does nothing, and it
+is not in `getLevels()`. That is the rule, not a gap: only effects with a real cheaper drawing
+declare levels. Rain has one look; how much of it falls is its intensity.
+
 ## Viewer comfort
 
 `manager.setComfort({ flash, ripple, bloom })` scales ambient flashes, shock-ring distortion
 and glow in the compositor without touching the simulation. The lab's five intensity levels
-(Minimal to Max) are built on it.
+(Minimal to Max) are built on it. Comfort is about the viewer's eyes, not about load, so it
+stays apart from intensity and detail.
 
 ## Frame pipeline
 
@@ -355,7 +401,7 @@ key belongs to which effect.
 | `Nebula` | Three.js (one shader quad that only adds light) | the `rain` context thickens it; the force field carries it; `lightning:strike`, `firework:exploded`, `meteor:impact`, `crystal:exploded`, `rainEater:exploded`, `singularity:collapsed` and `fireflies:synced` light it from inside; the pointer | its density and how many lights glow in it |
 | `Snow` | Pixi | the force field (wind slants the flakes and shaves the piles); DOM ledges (piles settle on them); the pointer wipes piles; `crystal:exploded`, `rainEater:exploded`, `lightning:strike`, `meteor:impact` and `singularity:collapsed` knock snow off, `firework:exploded` melts it; `page:hit` | its context only: flakes, settled, deepest |
 | `Tide` | Pixi (three bands of water) | `rain:landed` raises it and rings it; the force field (wind sets the swell, shock rings push the surface); presses at the water; bursts near it splash it; `lightning:strike`, `firework:exploded` and `meteor:impact` are reflected | its `level`, `surfaceY` and how far it has `raised` |
-| `Meadow` | Pixi (one mesh per row of grass) | the force field (gusts roll through it, shock rings flatten it); the pointer parts it and a press mows it; `lightning:strike` and `meteor:impact` scorch it; `rain:landed` flicks blades; DOM ledges (grass grows on them) | how many blades stand and how far it leans |
+| `Meadow` | Pixi (one mesh per row of grass); four looks, `MeadowLevel` `Lines` to `Full`; intensity is how many blades show | the force field (gusts roll through it, shock rings flatten it); the pointer parts it and a press mows it; `lightning:strike` and `meteor:impact` scorch it; `rain:landed` flicks blades; DOM ledges (grass grows on them). Below `Full` it feels only the stage-wide wind, and below `Wind` nothing moves it | how many blades stand and how far it leans |
 | `Bubbles` | Three.js (glass spheres that refract the backdrop and the Pixi layer) | the force field; DOM ledges (they stop under them and slide round); presses pop them; the `rain` context (a droplet may pop one); the `rainEater` and `singularity` contexts; `crystal:exploded`, `rainEater:exploded`, `lightning:strike`, `meteor:impact`, `firework:exploded` and `singularity:collapsed` set off pops | where every bubble is; `bubble:popped`, `page:hit` |
 | `Confetti` | Three.js (instanced paper pieces) | `firework:exploded`, `singularity:collapsed` and `fireflies:synced` set it off; the force field; presses lift lying pieces; DOM ledges (pieces come to rest on them) | how many pieces fly and lie; `page:hit` |
 | `Fireflies` | Pixi | violent events scatter them (`lightning:strike`, `firework:exploded`, `crystal:exploded`, `rainEater:exploded`, `meteor:impact`, `bubble:popped`, `flock:startled`, `singularity:collapsed`) and so do presses; the `rain` context (they shelter under DOM ledges); the `serpent` context; the force field | the `fireflies` context (`count`, `sync`), `fireflies:synced` |

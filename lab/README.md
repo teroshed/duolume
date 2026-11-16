@@ -65,6 +65,7 @@ window.teroshedLab.setEffectEnabled('wind', false);
 window.teroshedLab.toggleEffect('fireworks');
 window.teroshedLab.setSpeed(1.5);              // clamped to 0.2–3, returns the applied value
 window.teroshedLab.setDrops(400);              // clamped to 0–1600
+window.teroshedLab.setDetail(0.5);             // how rich effects with looks may draw, clamped to 0–1
 window.teroshedLab.setGradient('heatmap');     // 'theme' | 'heatmap' | 'rainbow' | 'aurora' | 'spiral'
 window.teroshedLab.setPaused(true);
 window.teroshedLab.explodeEater();
@@ -77,7 +78,7 @@ authentication: it is a public demo page with no data behind it.
 
 Where the browser provides WebMCP (`navigator.modelContext`), the same operations are
 registered as tools in `webmcp.ts`: `lab_get_state`, `lab_set_scene`, `lab_set_intensity`,
-`lab_set_effect`, `lab_set_speed`, `lab_set_drops`, `lab_set_gradient`, `lab_set_paused`,
+`lab_set_effect`, `lab_set_speed`, `lab_set_drops`, `lab_set_detail`, `lab_set_gradient`, `lab_set_paused`,
 `lab_explode_eater`. Each returns the resulting state as JSON.
 
 ### Not covered

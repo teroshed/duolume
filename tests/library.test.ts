@@ -18,7 +18,8 @@ interface LibraryEffect {
 /** The effects exported from effects/index.ts, with the name each one runs under. */
 function exportedEffects(): LibraryEffect[] {
     const effects: LibraryEffect[] = [];
-    for (const match of read('effects/index.ts').matchAll(/export \{ (\w+)(?:, type \w+)? \} from '\.\/([\w/]+)';/g)) {
+    // The class comes first; what follows it is its options type and anything else it exports (`MeadowLevel`).
+    for (const match of read('effects/index.ts').matchAll(/export \{ (\w+)(?:, (?:type )?\w+)* \} from '\.\/([\w/]+)';/g)) {
         const [, className, path] = match;
         const file = `effects/${path}.ts`;
         const name = read(file).match(/effectName(?:: string)? = '(\w+)'/);

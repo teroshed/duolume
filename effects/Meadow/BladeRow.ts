@@ -255,6 +255,31 @@ export function writeBlade(out: Float32Array, offset: number, rx: number, h: num
     }
 }
 
+/** Width of a blade drawn as a plain line, px. */
+export const LINE_WIDTH = 1.3;
+
+/**
+ * Write one blade as a straight line of even width, root to tip, into the same strip
+ * `writeBlade` fills. Cheaper: one direction for the whole blade, no curve, no taper.
+ */
+export function writeLine(out: Float32Array, offset: number, rx: number, h: number, dx: number): void {
+    const tipY = -Math.sqrt(Math.max(h * h - dx * dx, 0.25 * h * h));
+    const len = Math.hypot(dx, tipY) || 1;
+    const w = h > 0 ? LINE_WIDTH * 0.5 : 0;
+    const nx = (-tipY / len) * w;
+    const ny = (dx / len) * w;
+    let o = offset;
+    for (let j = 0; j <= SEGMENTS; j++) {
+        const t = j / SEGMENTS;
+        const px = rx + t * dx;
+        const py = t * tipY;
+        out[o++] = px - nx;
+        out[o++] = py - ny;
+        out[o++] = px + nx;
+        out[o++] = py + ny;
+    }
+}
+
 /** Fixed triangle indices for `count` blade strips, in the given drawing order. */
 export function bladeIndices(order: ArrayLike<number>): Uint32Array {
     const indices = new Uint32Array(order.length * INDICES_PER_BLADE);

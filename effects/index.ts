@@ -23,7 +23,7 @@ export { Frost, type FrostOptions } from './Frost/Frost';
 export { Fuse, type FuseOptions } from './Fuse/Fuse';
 export { LightningStorm, type LightningStormOptions } from './LightningStorm/LightningStorm';
 export { Liquid, type LiquidOptions } from './Liquid/Liquid';
-export { Meadow, type MeadowOptions } from './Meadow/Meadow';
+export { Meadow, MeadowLevel, type MeadowOptions } from './Meadow/Meadow';
 export { Meteors, type MeteorsOptions } from './Meteors/Meteors';
 export { Miniatures, type MiniaturesOptions } from './Miniatures/Miniatures';
 export { Nebula, type NebulaOptions } from './Nebula/Nebula';

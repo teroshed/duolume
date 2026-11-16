@@ -96,6 +96,15 @@ export function exposeLabActions(actions: LabActions): { webmcp: boolean } {
             },
         },
         {
+            name: 'lab_set_detail',
+            description: 'Set how rich effects with several looks may draw, 0–1. At 1 the grass is shaded and moves with everything; lower, it steps down to plain lines.',
+            inputSchema: object({ detail: { type: 'number', minimum: 0, maximum: 1 } }, ['detail']),
+            execute: (input) => {
+                actions.setDetail(input.detail as never);
+                return reply();
+            },
+        },
+        {
             name: 'lab_set_gradient',
             description: 'Set the rain colour gradient.',
             inputSchema: object({ gradient: { type: 'string', enum: Object.values(GradientType) } }, ['gradient']),
