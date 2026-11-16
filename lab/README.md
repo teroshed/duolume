@@ -13,7 +13,7 @@ single effects afterwards without leaving the scene.
 | Scene | Effects running | What to try |
 | --- | --- | --- |
 | Storm (default) | what the intensity level says (the table below) | the level slider; Space, E, W, S, the arrows |
-| Night meadow | wind, meadow, fireflies, flock, constellation | blow with the arrows and watch the grass; wait for the fireflies to blink together and the birds to land on the panel |
+| Night meadow | wind, meadow, fireflies, flock, constellation | blow with the arrows and watch the grass; press in it and drag to cut it at the pointer's height, and it grows back a few seconds later; wait for the fireflies to blink together and the birds to land on the panel |
 | Winter | wind, snow, nebula, crystals, ribbons | let the snow pile up on the panel and shelves, then blow it off; break a crystal to light the cloud |
 | Rising tide | wind, rain, tide, bubbles, serpent | B blows bubbles from the pointer; more rain raises the sea; the serpent follows the pointer |
 | Celebration | wind, fireworks, confetti, click sparks, ribbons | C fires both confetti cannons; Space bursts the shells |

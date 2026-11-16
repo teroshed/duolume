@@ -161,7 +161,10 @@ export interface SoloInput {
     mouse?: { x: number; y: number } | null;
     /** A press (and release) at the pointer position on the first tick of this step. */
     press?: boolean;
-    /** Hold the button for the whole step. */
+    /**
+     * Hold the button for the whole step. Held in the step before too, it is the same press
+     * going on: move `mouse` between two such steps and that is a drag.
+     */
     hold?: boolean;
     /** Keys held for the whole step, lower-case names: 'space', 'arrowleft', 'e'. */
     keys?: string[];
@@ -175,6 +178,8 @@ export interface SoloInput {
 }
 
 let pointer: { x: number; y: number } | undefined;
+/** The button was held through the step before this one. */
+let held = false;
 
 /**
  * Still mode only: advance the simulation by `ticks` with scripted input, then draw one frame.
@@ -202,13 +207,14 @@ function step(ticks: number, input: SoloInput = {}): void {
             keysPressed: input.keys ?? [],
             justPressedKeys: first ? [...(input.tap ?? [])] : [],
             justReleasedKeys: [],
-            mouseJustPressed: first && (input.press === true || input.hold === true),
-            mouseJustReleased: false,
+            mouseJustPressed: first && (input.press === true || (input.hold === true && !held)),
+            mouseJustReleased: first && held && input.hold !== true,
             wheelDelta: first ? (input.wheel ?? 0) : 0,
             scrollY: 0,
         };
         manager.simulation.tickCycle(tickInput);
     }
+    held = input.hold === true;
     manager.renderOnce();
 }
 

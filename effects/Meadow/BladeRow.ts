@@ -4,7 +4,13 @@
  * the rows and draws each one as a single Pixi mesh from `writeVertices`.
  *
  * A blade's state is the horizontal offset of its tip (`lean`, px) and that offset's velocity
- * (px/ms). Everything else is fixed at birth, except how far it has grown back after a cut.
+ * (px/ms). Everything else is fixed at birth, except where it was last cut and how far it has
+ * grown back since.
+ *
+ * A cut does not shrink a blade: it keeps its curve and loses the part above the cut, so it ends
+ * in a flat top. How much is left is `growth`, the share of the blade's length that still
+ * stands (1 is whole). A cut blade stands as it was cut for a while, then climbs back at its own
+ * speed; both numbers are given with the cut, so the row itself rolls no dice.
  */
 
 /** Segments along a blade; each blade is a strip of (SEGMENTS + 1) × 2 vertices. */
@@ -21,7 +27,7 @@ export const STIFFNESS = 4.9e-5;
 export const GAIN = (0.25 * STIFFNESS) / 0.00016;
 /** Tips never lean further than this share of the blade's height. */
 export const MAX_LEAN = 0.85;
-/** Height of a cut blade, as a share of its full height. */
+/** The least a cut leaves: this share of the blade's length. Nothing cuts lower. */
 export const STUBBLE = 0.12;
 
 const DAMPING_RATIO = 0.26;
@@ -58,11 +64,17 @@ export class BladeRow {
     public readonly velocity: Float32Array;
     /** When the blade was last cut (simulation ms), -Infinity if never. */
     public readonly cutAt: Float64Array;
-    /** When it was last scorched, -Infinity if never. */
-    public readonly scorchAt: Float64Array;
-    /** Current height as a share of full height (stubble .. 1). Updated by `grow`. */
+    /** The share of its length that last cut left standing. 1 if never cut. */
+    public readonly cutShare: Float32Array;
+    /** When it starts to grow back from that cut (simulation ms). */
+    public readonly regrowAt: Float64Array;
+    /** How long the climb from `cutShare` back to whole takes, ms. */
+    public readonly regrowMs: Float32Array;
+    /** 1 while the blade is burnt: set by a scorching cut, cleared when it has grown back. */
+    public readonly scorched: Uint8Array;
+    /** The share of its length standing now (stubble .. 1). Updated by `grow`. */
     public readonly growth: Float32Array;
-    /** Current scorch, 0..1. Updated by `grow`. */
+    /** Current scorch, 0..1: full until the blade starts to grow, gone when it is whole. Updated by `grow`. */
     public readonly scorch: Float32Array;
 
     /** Blade indices in drawing order: back layer first. */
@@ -96,7 +108,10 @@ export class BladeRow {
         this.lean = new Float32Array(n);
         this.velocity = new Float32Array(n);
         this.cutAt = new Float64Array(n).fill(-Infinity);
-        this.scorchAt = new Float64Array(n).fill(-Infinity);
+        this.cutShare = new Float32Array(n).fill(1);
+        this.regrowAt = new Float64Array(n).fill(-Infinity);
+        this.regrowMs = new Float32Array(n).fill(1);
+        this.scorched = new Uint8Array(n);
         this.growth = new Float32Array(n).fill(1);
         this.scorch = new Float32Array(n);
         this.order = new Uint32Array(n);
@@ -166,12 +181,52 @@ export class BladeRow {
         return lo;
     }
 
-    /** Update `growth` and `scorch` from the cut and scorch times. */
-    public grow(time: number, regrowMs: number): void {
+    /**
+     * Cut blade `i` at `time`, leaving `share` of its length (never less than `STUBBLE`). It
+     * stands like that for `delay` ms, then grows back at `speed`, in shares of its length per ms.
+     * A cut never lengthens a blade: one at or above where the blade ends now changes nothing,
+     * not even the wait it is in, and returns false. A scorching cut also burns the blade, and
+     * always takes: lightning that finds only stubble still starts its wait again.
+     */
+    public cut(i: number, share: number, time: number, delay: number, speed: number, scorch = false): boolean {
+        const now = this.growthAt(i, time);
+        const left = Math.min(now, Math.max(STUBBLE, share));
+        if (!scorch && !(left < now - 0.004)) {
+            return false;
+        }
+        this.cutAt[i] = time;
+        this.cutShare[i] = left;
+        this.regrowAt[i] = time + Math.max(0, delay);
+        this.regrowMs[i] = Math.max(1, (1 - left) / Math.max(1e-9, speed));
+        if (scorch) {
+            this.scorched[i] = 1;
+        }
+        this.growth[i] = left;
+        return true;
+    }
+
+    /** The share of blade `i` standing at `time`, from its last cut alone. */
+    public growthAt(i: number, time: number): number {
+        return regrown(this.cutShare[i], time - this.regrowAt[i], this.regrowMs[i]);
+    }
+
+    /** Update `growth` and `scorch` for `time`. */
+    public grow(time: number): void {
         for (let i = 0; i < this.count; i++) {
-            this.growth[i] = regrowth(time - this.cutAt[i], regrowMs);
-            const s = (time - this.scorchAt[i]) / regrowMs;
-            this.scorch[i] = s >= 1 ? 0 : s <= 0 ? 1 : 1 - s * s * (3 - 2 * s);
+            const share = this.cutShare[i];
+            const g = regrown(share, time - this.regrowAt[i], this.regrowMs[i]);
+            this.growth[i] = g;
+            if (this.scorched[i] === 1) {
+                if (g >= 1) {
+                    this.scorched[i] = 0;
+                    this.scorch[i] = 0;
+                } else {
+                    // The ash goes as the blade comes back: all of it until it starts, none when whole.
+                    this.scorch[i] = share < 1 ? (1 - g) / (1 - share) : 0;
+                }
+            } else {
+                this.scorch[i] = 0;
+            }
         }
     }
 
@@ -201,9 +256,9 @@ export class BladeRow {
         this.velocity[i] = v;
     }
 
-    /** Height a blade shows now, px, before the budget fades it. */
+    /** How high blade `i` reaches now when upright, px, before the budget fades it. */
     public shownHeight(i: number): number {
-        return this.height[i] * this.growth[i];
+        return this.height[i] * riseAt(this.growth[i]);
     }
 
     /** The tip's offset as drawn, px, for a raw lean (rest included): soft-clamped to ±85% of `h`. */
@@ -213,29 +268,50 @@ export class BladeRow {
     }
 }
 
-/** Share of full height `age` ms after a cut: stubble, then an eased climb back to 1 over `regrowMs`. */
-export function regrowth(age: number, regrowMs: number): number {
-    if (!(age < regrowMs)) {
+/**
+ * The share of a blade standing `since` ms after it began to grow back from a cut that left
+ * `share`: `share` until then (a negative `since` is the wait), then an eased climb to 1 over
+ * `regrowMs`.
+ */
+export function regrown(share: number, since: number, regrowMs: number): number {
+    if (!(since > 0)) {
+        return share;
+    }
+    if (!(since < regrowMs)) {
         return 1;
     }
-    const t = Math.max(0, age / regrowMs);
-    const eased = 1 - (1 - t) * (1 - t) * (1 - t);
-    return STUBBLE + (1 - STUBBLE) * eased;
+    const t = since / regrowMs;
+    return share + (1 - share) * t * t * (3 - 2 * t);
+}
+
+/**
+ * How high an upright blade reaches at the share `t` of its length, as a share of its full
+ * height. Not `t` itself: the curve `writeBlade` draws climbs fastest near the root.
+ */
+export function riseAt(t: number): number {
+    return t * (1.16 - 0.16 * t);
+}
+
+/** The inverse of `riseAt`: the share of a blade's length that reaches `rise` of its height. */
+export function shareAtRise(rise: number): number {
+    const r = rise < 0 ? 0 : rise > 1 ? 1 : rise;
+    return (1.16 - Math.sqrt(1.16 * 1.16 - 0.64 * r)) / 0.32;
 }
 
 /**
  * Write one blade's strip into `out` at `offset` (in floats), relative to the row's root line:
  * a quadratic curve from the root (fixed, at `rx, 0`), through a control point straight above
  * it, to the tip, which is pushed sideways by `dx` and drops so the blade's length looks constant.
- * Writes `VERTS_PER_BLADE` vertices (x, y pairs).
+ * `share` below 1 draws only that much of the curve, from the root: a cut blade, ending in a
+ * flat top as wide as the blade is there. Writes `VERTS_PER_BLADE` vertices (x, y pairs).
  */
-export function writeBlade(out: Float32Array, offset: number, rx: number, h: number, rootWidth: number, dx: number): void {
+export function writeBlade(out: Float32Array, offset: number, rx: number, h: number, rootWidth: number, dx: number, share = 1): void {
     const tipY = -Math.sqrt(Math.max(h * h - dx * dx, 0.25 * h * h));
     const cy = tipY * 0.58;
     const halfW = rootWidth * 0.5;
     let o = offset;
     for (let j = 0; j <= SEGMENTS; j++) {
-        const t = j / SEGMENTS;
+        const t = (j / SEGMENTS) * share;
         const u = 1 - t;
         // Point on the curve: root (rx, 0), control (rx, cy), tip (rx + dx, tipY).
         const px = rx + t * t * dx;
