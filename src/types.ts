@@ -81,6 +81,27 @@ export interface Theme {
     ink: number;
 }
 
+/**
+ * A numeric enum of looks, cheapest first, as passed to `tick.level(MeadowLevel)`: the enum
+ * object itself, not one of its members.
+ */
+export type LevelEnum = Record<string, string | number>;
+
+/** The member type of a numeric enum object: `LevelOf<typeof MeadowLevel>` is `MeadowLevel`. */
+export type LevelOf<E extends LevelEnum> = Extract<E[keyof E], number>;
+
+/** What `manager.getLevels()` says about one effect that has looks. */
+export interface LevelInfo {
+    /** The look drawn now, as the enum's number. */
+    level: number;
+    /** Its name in the enum. */
+    name: string;
+    /** Every look's name, cheapest first. */
+    names: string[];
+    /** True while the page has fixed the look, by an option or by `setLevel`. */
+    pinned: boolean;
+}
+
 /** Frame-rate governor state handed to effects. See PopulationGovernor. */
 export interface BudgetState {
     /** 0..1 share of each population's capacity that may be alive right now. */
@@ -130,6 +151,18 @@ export interface TickContext {
     theme: Theme;
     budget: BudgetState;
     /**
+     * How much of this effect the page asked for, 0..1: its own intensity times the scene's
+     * (`manager.setIntensity`). Each effect sees its own. A `ParticleSet` already uses it.
+     */
+    intensity: number;
+    /**
+     * Which look to draw, for an effect that has more than one. Pass its numeric enum, cheapest
+     * first: `tick.level(MeadowLevel)`. The engine picks from the scene's detail and the frame
+     * budget, one step at a time, unless the page pinned a look. `pinned` is the look the effect's
+     * own option asks for; `manager.setLevel` wins over it.
+     */
+    level<E extends LevelEnum>(levels: E, pinned?: LevelOf<E>): LevelOf<E>;
+    /**
      * Freshest published context for an effect: this tick's if that effect already ran,
      * otherwise last tick's. Returns the inner `effectContext`.
      */
@@ -173,4 +206,6 @@ export interface TimedContext {
     stage: Stage;
     theme: Theme;
     budget: BudgetState;
+    /** This effect's intensity, 0..1, the same number its `onTick` saw as `tick.intensity`. */
+    intensity: number;
 }

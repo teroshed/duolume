@@ -7,7 +7,7 @@ import { PopulationGovernor, type GovernorOptions } from './Governor';
 import { InputState } from './Input';
 import { Simulation, type TickInput } from './Simulation';
 import { Stage } from './Stage';
-import type { EngineEvent, Theme, TimedContext } from './types';
+import type { EngineEvent, LevelInfo, Theme, TimedContext } from './types';
 
 export const DEFAULT_THEME: Theme = {
     bgTop: 0x0b1018,
@@ -176,6 +176,7 @@ export class VisualsManager {
             stage,
             theme: this.theme,
             budget: this.governor,
+            intensity: 1,
         };
 
         this.resizeObserver = new ResizeObserver(() => {
@@ -311,6 +312,61 @@ export class VisualsManager {
 
     public getComfort(): Readonly<{ flash: number; ripple: number; bloom: number }> {
         return this.compositor.comfort;
+    }
+
+    /**
+     * How much of an effect to show, 0..1 (default 1). `setIntensity('rain', 0.4)` for one effect,
+     * `setIntensity({ rain: 0.4, meadow: 1 })` for several, `setIntensity(0.6)` for the whole scene,
+     * which is multiplied into each effect's own. Zero switches an effect off; raising it switches it
+     * back on. The effect reads the result as `tick.intensity`.
+     */
+    public setIntensity(effectName: string, intensity: number): void;
+    public setIntensity(intensities: Readonly<Record<string, number>>): void;
+    public setIntensity(sceneIntensity: number): void;
+    public setIntensity(target: string | number | Readonly<Record<string, number>>, intensity?: number): void {
+        if (typeof target === 'string') {
+            this.simulation.setIntensity(target, intensity ?? NaN);
+        } else if (typeof target === 'number') {
+            this.simulation.setIntensity(target);
+        } else {
+            this.simulation.setIntensity(target);
+        }
+        this.invalidated = true;
+    }
+
+    /** An effect's own intensity as set (default 1), or with no name the whole scene's. */
+    public getIntensity(effectName?: string): number {
+        return this.simulation.getIntensity(effectName);
+    }
+
+    /**
+     * How rich the whole scene may look, 0..1 (default 1). Each effect that has looks maps it,
+     * times the frame budget, onto its own levels. An effect with one look ignores it.
+     */
+    public setDetail(detail: number): void {
+        this.simulation.setDetail(detail);
+        this.invalidated = true;
+    }
+
+    public getDetail(): number {
+        return this.simulation.getDetail();
+    }
+
+    /**
+     * Fix an effect's look: `setLevel('meadow', MeadowLevel.Lines)`. `undefined` gives it back
+     * to the machine. Wins over the effect's own option. An effect with one look ignores it.
+     */
+    public setLevel(effectName: string, level: number | undefined): void {
+        this.simulation.setLevel(effectName, level);
+        this.invalidated = true;
+    }
+
+    /**
+     * For each effect that has asked for a level: the look it draws now (number and name), all its
+     * look names, cheapest first, and whether the page pinned it. Effects with one look are absent.
+     */
+    public getLevels(): Record<string, LevelInfo> {
+        return this.simulation.getLevels();
     }
 
     /**
@@ -515,6 +571,7 @@ export class VisualsManager {
             timed.context = slot.pixi;
             timed.front = slot.pixiFront;
             timed.group = slot.three;
+            timed.intensity = sim.intensityOf(slot.effect.effectName);
             try {
                 slot.effect.onRender(timed);
             } catch (error) {

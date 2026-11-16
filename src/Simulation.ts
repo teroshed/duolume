@@ -1,11 +1,15 @@
 import type { AnyEffect } from './Effect';
 import { ForceField } from './ForceField';
+import { LEVEL_HOLD_MS, nextStep, readLevels, stepFor, stepOf, type LevelTrack } from './Levels';
 import type { Stage } from './Stage';
 import type {
     BudgetState,
     ContextOf,
     EffectContext,
     EngineEvent,
+    LevelEnum,
+    LevelInfo,
+    LevelOf,
     PayloadOf,
     Theme,
     TickContext,
@@ -67,6 +71,15 @@ export class Simulation {
     private readonly outsideListeners = new Map<string, Set<(event: EngineEvent) => void>>();
     private readonly warnedNames = new Set<string>();
 
+    /** Each effect's own intensity, 0..1. Missing means 1. */
+    private readonly intensities = new Map<string, number>();
+    private sceneIntensity = 1;
+    private detail = 1;
+    /** Looks the page pinned with `setLevel`, by effect name. */
+    private readonly levelPins = new Map<string, number>();
+    /** What the engine keeps about each effect that has asked for a level. */
+    private readonly levelTracks = new Map<string, LevelTrack>();
+
     public constructor(stage: Stage, theme: Theme, budget: BudgetState) {
         const self = this;
         this.tickContext = {
@@ -91,6 +104,10 @@ export class Simulation {
             stage,
             theme,
             budget,
+            intensity: 1,
+            level<E extends LevelEnum>(levels: E, pinned?: LevelOf<E>): LevelOf<E> {
+                return self.pickLevel(levels, pinned) as LevelOf<E>;
+            },
             read<K extends string>(effectName: K): Readonly<ContextOf<K>> | undefined {
                 const found = this.previousEffectsContext.get(effectName) ?? this.previousTickContext.get(effectName);
                 if (!found) {
@@ -140,6 +157,9 @@ export class Simulation {
         this.failed.delete(effectName);
         this.mapA.delete(effectName);
         this.mapB.delete(effectName);
+        this.intensities.delete(effectName);
+        this.levelPins.delete(effectName);
+        this.levelTracks.delete(effectName);
         return effect;
     }
 
@@ -147,8 +167,93 @@ export class Simulation {
         return this.effects.find((effect) => effect.effectName === effectName) as E | undefined;
     }
 
+    /** True when the effect ticks and draws: switched on, not failed, and its intensity above zero. */
     public isEnabled(effectName: string): boolean {
-        return this.effectEnabled.get(effectName) === true && !this.failed.has(effectName);
+        return this.effectEnabled.get(effectName) === true && !this.failed.has(effectName) && this.intensityOf(effectName) > 0;
+    }
+
+    // ---- how much: intensity ----
+
+    /**
+     * Set intensities, clamped to 0..1: one effect's (`'rain', 0.4`), several (`{ rain: 0.4 }`),
+     * or with a lone number the whole scene's, which is multiplied into every effect's own.
+     * Zero switches an effect off until it is raised again. Names not on the page and values
+     * that are not numbers are ignored.
+     */
+    public setIntensity(effectName: string, intensity: number): void;
+    public setIntensity(intensities: Readonly<Record<string, number>>): void;
+    public setIntensity(sceneIntensity: number): void;
+    public setIntensity(target: string | number | Readonly<Record<string, number>>, intensity?: number): void {
+        if (typeof target === 'number') {
+            if (Number.isFinite(target)) {
+                this.sceneIntensity = clamp01(target);
+            }
+            return;
+        }
+        const entries: [string, number | undefined][] = typeof target === 'string' ? [[target, intensity]] : Object.entries(target);
+        for (const [effectName, value] of entries) {
+            if (this.effectEnabled.has(effectName) && typeof value === 'number' && Number.isFinite(value)) {
+                this.intensities.set(effectName, clamp01(value));
+            }
+        }
+    }
+
+    /** An effect's own intensity as set (default 1), or with no name the scene's. */
+    public getIntensity(effectName?: string): number {
+        return effectName === undefined ? this.sceneIntensity : (this.intensities.get(effectName) ?? 1);
+    }
+
+    /** What the effect sees as `tick.intensity`: its own times the scene's. */
+    public intensityOf(effectName: string): number {
+        return (this.intensities.get(effectName) ?? 1) * this.sceneIntensity;
+    }
+
+    // ---- how rich: detail and levels ----
+
+    /** How rich the whole scene may look, 0..1. Default 1. Only effects with looks use it. */
+    public setDetail(detail: number): void {
+        if (Number.isFinite(detail)) {
+            this.detail = clamp01(detail);
+        }
+    }
+
+    public getDetail(): number {
+        return this.detail;
+    }
+
+    /**
+     * Fix an effect's look to one of its enum's values, or give it back to the machine with
+     * `undefined`. Wins over the effect's own option. An effect with one look ignores it.
+     */
+    public setLevel(effectName: string, level: number | undefined): void {
+        if (!this.effectEnabled.has(effectName)) {
+            return;
+        }
+        if (level === undefined || !Number.isFinite(level)) {
+            this.levelPins.delete(effectName);
+            return;
+        }
+        this.levelPins.set(effectName, level);
+        // Show it right away in getLevels, before the effect next asks.
+        const track = this.levelTracks.get(effectName);
+        if (track) {
+            this.moveTo(track, stepOf(track.values, level));
+            track.pinned = true;
+        }
+    }
+
+    /** Every effect that has asked for a level: the look it draws now, all its look names, and whether it is pinned. */
+    public getLevels(): Record<string, LevelInfo> {
+        const out: Record<string, LevelInfo> = {};
+        for (const [effectName, track] of this.levelTracks) {
+            out[effectName] = {
+                level: track.values[track.step],
+                name: track.names[track.step],
+                names: [...track.names],
+                pinned: track.pinned,
+            };
+        }
+        return out;
     }
 
     public setEffectEnabled(effectName: string, enabled: boolean): void {
@@ -170,7 +275,8 @@ export class Simulation {
     public getEffectEnabledState(): Record<string, boolean> {
         const states: Record<string, boolean> = {};
         for (const [effectName, enabled] of this.effectEnabled.entries()) {
-            states[effectName] = enabled;
+            // An intensity of zero is off, the same as the switch.
+            states[effectName] = enabled && this.intensityOf(effectName) > 0;
         }
         return states;
     }
@@ -229,6 +335,7 @@ export class Simulation {
                 continue;
             }
             this.currentEffect = effect.effectName;
+            ctx.intensity = this.intensityOf(effect.effectName);
             try {
                 const effectContext = effect.onTick(ctx);
                 ctx.previousEffectsContext.set(effect.effectName, effectContext);
@@ -246,6 +353,50 @@ export class Simulation {
         this.forces.step(ctx.timeDelta);
         ctx.time += ctx.timeDelta;
         ctx.totalTickCount += 1;
+    }
+
+    /** `tick.level(...)` for the effect now ticking. See `Levels.ts` for how a look is picked. */
+    private pickLevel(levels: LevelEnum, optionPin: number | undefined): number {
+        const tickCount = this.tickContext.totalTickCount;
+        const richness = this.detail * clamp01(this.tickContext.budget.budget);
+        const effectName = this.currentEffect;
+        let track = this.levelTracks.get(effectName);
+        if (!track || track.levels !== levels) {
+            const { values, names } = readLevels(levels);
+            if (values.length === 0) {
+                return 0;
+            }
+            if (!effectName) {
+                // Asked outside an effect's tick: nothing to remember it by.
+                return values[optionPin === undefined ? stepFor(richness, values.length) : stepOf(values, optionPin)];
+            }
+            track = { levels, values, names, step: stepFor(richness, values.length), changedAt: tickCount, askedAt: -1, pinned: false };
+            this.levelTracks.set(effectName, track);
+        }
+        if (track.askedAt === tickCount) {
+            return track.values[track.step];
+        }
+        track.askedAt = tickCount;
+
+        const pin = this.levelPins.get(effectName) ?? optionPin;
+        if (pin !== undefined && Number.isFinite(pin)) {
+            this.moveTo(track, stepOf(track.values, pin));
+            track.pinned = true;
+        } else if (track.pinned) {
+            // Just given back to the machine: it starts from the pinned look and waits its hold.
+            track.pinned = false;
+            track.changedAt = tickCount;
+        } else if ((tickCount - track.changedAt) * Simulation.TICK_MS >= LEVEL_HOLD_MS) {
+            this.moveTo(track, nextStep(track.step, richness, track.values.length));
+        }
+        return track.values[track.step];
+    }
+
+    private moveTo(track: LevelTrack, step: number): void {
+        if (step !== track.step) {
+            track.step = step;
+            track.changedAt = this.tickContext.totalTickCount;
+        }
     }
 
     /**
@@ -294,4 +445,8 @@ export class Simulation {
             payload,
         });
     }
+}
+
+function clamp01(value: number): number {
+    return value < 0 ? 0 : value > 1 ? 1 : value;
 }
