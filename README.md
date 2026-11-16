@@ -281,6 +281,20 @@ and glow in the compositor without touching the simulation. The lab's five inten
 Pixi and Three.js each keep their own WebGL context. That costs one or two texture uploads per
 frame and is the arrangement both libraries support without patching.
 
+### A transparent stage
+
+`VisualsManager.create(canvas, { transparent: true })` leaves the backdrop out. Where no effect
+draws, the canvas is see-through, so the page behind it shows (or the desktop, in a transparent
+window). Effects are written exactly as before. What differs:
+
+- A glow keeps a halo: light with nothing under it brings its own alpha, as much as its brightest
+  channel, so it shows over a bright page too.
+- No vignette, and no dither on empty pixels: a pixel nothing drew on is exactly zero.
+- `surfaces.flash` and `surfaces.focus` light the backdrop, so they do nothing. Glass that bends
+  the backdrop (crystals, bubbles, the singularity) bends only the Pixi layer and looks darker.
+- Shock rings still bend the layers, and still leave their faint ring of light.
+- Give the canvas no CSS background. The option cannot be changed after the manager is created.
+
 ## The effect library
 
 Every library effect takes an optional options object: `new Rain({ dropCount: 300 })`,

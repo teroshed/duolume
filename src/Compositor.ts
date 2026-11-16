@@ -45,6 +45,14 @@ export interface CompositorOptions {
     /** Multisample the Three.js scene. Default true. */
     antialias?: boolean;
     bloomStrength?: number;
+    /**
+     * No backdrop: where no effect draws, the canvas is see-through and the page (or the desktop,
+     * in a transparent window) shows. Glows keep a halo of their own. Give the canvas no CSS
+     * background. Effects are written the same; `surfaces.flash` and `surfaces.focus` light the
+     * backdrop, so they do nothing here, and glass that bends the backdrop bends only the Pixi
+     * layer. Default false.
+     */
+    transparent?: boolean;
 }
 
 /**
@@ -101,6 +109,8 @@ export class Compositor {
 
     private readonly stage: Stage;
     private readonly bloomEnabled: boolean;
+    /** The stage has no backdrop and the canvas is see-through where nothing is drawn. */
+    public readonly transparent: boolean;
     private readonly maxPixelRatio: number;
     private pixelRatio = 1;
 
@@ -131,6 +141,7 @@ export class Compositor {
         uBgScroll: IUniform<number>;
         uBgFocus: IUniform<ThreeVector3>;
         uBgFlash: IUniform<number>;
+        uBgOff: IUniform<number>;
     };
     private readonly abort = new AbortController();
 
@@ -157,12 +168,15 @@ export class Compositor {
         this.stage = stage;
         this.pixi = pixi;
         this.bloomEnabled = options.bloom ?? true;
+        this.transparent = options.transparent ?? false;
         this.maxPixelRatio = options.maxPixelRatio ?? 2;
         this.bloomStrength = this.bloomEnabled ? (options.bloomStrength ?? 0.55) : 0;
 
         this.three = new WebGLRenderer({
             canvas,
-            alpha: false,
+            // A see-through canvas has to be asked for when its context is made.
+            alpha: this.transparent,
+            premultipliedAlpha: true,
             antialias: false,
             depth: false,
             stencil: false,
@@ -201,6 +215,7 @@ export class Compositor {
             uBgScroll: { value: 0 },
             uBgFocus: { value: new ThreeVector3(0.5, 0.5, 0) },
             uBgFlash: { value: 0 },
+            uBgOff: { value: this.transparent ? 1 : 0 },
         };
         this.surfaces = {
             behind: this.uniforms,
@@ -232,8 +247,10 @@ export class Compositor {
             uCombined: { value: this.combineTarget.texture },
             uBloom: { value: this.bloomUp[1].texture },
             uBloomStrength: { value: this.bloomStrength },
-            uVignette: { value: 0.55 },
+            // A vignette darkens the corners of a backdrop; a transparent stage has none.
+            uVignette: { value: this.transparent ? 0 : 0.55 },
             uFxTime: this.uniforms.uFxTime,
+            uTransparent: { value: this.transparent ? 1 : 0 },
         });
 
         const triangle = new BufferGeometry();
