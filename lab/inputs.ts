@@ -5,6 +5,7 @@ import { ClickExplosion } from '../effects/ClickExplosions/ClickExplosion';
 import { Confetti } from '../effects/Confetti/Confetti';
 import { Constellation } from '../effects/Constellation/Constellation';
 import { Crystals } from '../effects/Crystals/Crystals';
+import { FieldFrame } from '../effects/FieldFrame/FieldFrame';
 import { Filings } from '../effects/Filings/Filings';
 import { Fireflies } from '../effects/Fireflies/Fireflies';
 import { FireworksEffect } from '../effects/Fireworks/FireworksEffect';
@@ -106,6 +107,7 @@ const MADE: readonly (readonly [tag: string, title: string, text: string, make: 
     ['filings', 'Filings', 'Iron filings under glass: every needle turns to the pointer, to the switch, and to the wind in the scene.', () => new Filings()],
     ['pulse', 'Pulse', 'A heartbeat. Steady while on, flat while off, faster the higher a slider is set; a press is a beat.', () => new Pulse()],
     ['petals', 'Petals', 'Switched on, a vine grows along the edge and blossoms. Switched off, the petals fall into the page.', () => new Petals()],
+    ['frame', 'Frame', 'Not in the control but round it: a sharp frame with pictures on it while it has the focus. Tab through these.', () => new FieldFrame()],
 ];
 
 // ---- the page's controls -----------------------------------------------------------

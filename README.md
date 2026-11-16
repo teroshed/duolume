@@ -223,6 +223,41 @@ write them itself. After changing `.checked` or `.value` from script, which fire
 A window shows the scene through whatever the page paints over it. A tinted card dims it; a card
 with `backdrop-filter: blur` smears everything inside it, so keep windows off blurred surfaces.
 
+## On the page
+
+The canvas goes through the bloom at a capped resolution, so a 1 px line drawn there comes out
+soft. For a sharp border or an ornament on a page element, an effect draws on the page itself:
+`this.host.page`, a fourth place next to `pixi`, `pixiFront` and `three`. Two calls, made in
+`onRender` every frame; whatever was not asked for in a frame is taken away after it:
+
+```ts
+public onRender(): void {
+    this.host.page.picture('card', { image: '/star.svg', at: [1, 0] }); // on the top-right corner
+    this.host.page.frame('card'); // a 1 px line round it, 6 px out, following its corners
+}
+```
+
+- `on` is an anchor's name, an anchor (`stage.tagged('frame')` gives them), a `Field`, or any
+  `{ name, x, y, width, height }`. Missing or off screen: nothing is drawn.
+- `shown` is how far it has appeared: a number 0..1 is used as given; `true` or `false` fades it
+  in or out by itself over `fade` ms (260) on the real clock, so it works while the scene is
+  paused; left out, it is simply there. Under reduced motion there is no running bead, marching
+  dash, rocking or twinkling, and a piece is there or gone in one frame.
+- A `Picture` is any image file (`size`, `at`, `origin`, `gap`, `flip`, `mirror`, `span`,
+  `grows`, `sway`, `twinkle`); its shape is used and `color` paints it: a theme colour by name
+  (`'accent'`, `'ink'`, following `setTheme`), any CSS colour, or `'own'` for the file's colours.
+  A `Frame` is the line (`gap`, `radius`, `line`, `dash`, `bead`, `color`) with pictures on it.
+  Each piece takes a `zIndex` among the page's elements; left out, it sits right above the canvas.
+- The stage measures each element's corner radius (`AnchorRect.radius`), so a frame follows it.
+
+The layer is a `<div>` after the canvas, over it and clipped to it, that never takes the pointer.
+The manager makes it on first use, hides it while the effect is off and removes it with the effect.
+
+`FieldFrame` is built on it. Tag an element and it gets a frame while it has the keyboard focus:
+`<input data-fx-anchor="email" data-fx-tags="frame laurel" />`, with `attachFieldTags()` on the
+page. `manager.focus('email')` plays the focus look from code and `manager.unfocus('email')` ends
+it, also while paused.
+
 ## Input
 
 By default the manager listens to the whole window: as a background behind a page, a press
@@ -327,6 +362,7 @@ key belongs to which effect.
 | `Flock` | Pixi | the force field; the `rainEater`, `serpent` and `singularity` contexts and a pressed or fast pointer (kept clear of); `crystal:exploded`, `rainEater:exploded`, `lightning:strike`, `firework:exploded`, `meteor:impact`, `bubble:popped`, `singularity:collapsed`, presses and `page:hit` frighten it; DOM ledges (perches); the `rain` context (no perching in rain) | `count`, `perched`, `center` and `heading`; `flock:startled` |
 | `Serpent` | Three.js (instanced gems) | the pointer; the `flock` context (it hunts the birds); the `singularity` and `rainEater` contexts (it steers clear); `crystal:exploded`, `rainEater:exploded`, `meteor:impact`, `firework:exploded` and `singularity:collapsed` frighten it; `lightning:strike` runs down its body; the force field | its head position, velocity, length and `excited`; a vortex wake and a small repel force |
 | `Constellation` | Pixi | every event that has a position (`lightning:strike`, `rainEater:exploded`, `singularity:collapsed`, `crystal:exploded`, `meteor:impact`, `firework:exploded`, `bubble:popped`, `flock:startled`, `fireflies:synced`) and presses start a spark; the pointer is one more point; the force field | its context only: `nodes`, `links`, `signals` |
+| `FieldFrame` | the page itself (`host.page`), round elements tagged `frame` | the word `focus` in the element's tags (`attachFieldTags()`, `manager.focus(name)`); the other word picks the look: `hud`, `filigree`, `laurel`, `sparkle` | its default look |
 | `Miniatures` | Pixi, inside page elements tagged `mini` | the element's state and the pointer over it; the events of the effect each miniature pictures (`lightning:strike`, `firework:exploded`, `rain:eaten`, `crystal:exploded`, `meteor:impact`, `bubble:popped`, …); the `wind` context; presses on the open stage | how many windows it draws in |
 | `Liquid` | Pixi, inside elements tagged `liquid` | the element's state and value (how full it is), the pointer (a press pokes the surface), the element being moved (it sloshes), the force field | how many elements it draws in |
 | `Sand` | Pixi, inside elements tagged `sand` | the element's state and value (which end the sand lies at), the pointer (a press dents the pile), the element being moved, the force field | that, and the grains in the air |

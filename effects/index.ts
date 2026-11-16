@@ -14,6 +14,7 @@ export { ClickExplosion, type ClickExplosionOptions } from './ClickExplosions/Cl
 export { Confetti, type ConfettiOptions } from './Confetti/Confetti';
 export { Constellation, type ConstellationOptions } from './Constellation/Constellation';
 export { Crystals, type CrystalsOptions } from './Crystals/Crystals';
+export { FieldFrame, type FieldFrameOptions } from './FieldFrame/FieldFrame';
 export { Filings, type FilingsOptions } from './Filings/Filings';
 export { Fireflies, type FirefliesOptions } from './Fireflies/Fireflies';
 export { FireworksEffect, type FireworksOptions } from './Fireworks/FireworksEffect';

@@ -374,6 +374,11 @@ export interface PetalsContext extends FieldsContext {
     petals: number;
 }
 
+export interface FieldFrameContext {
+    /** The look of a framed element whose tags name none: 'hud', 'filigree', 'laurel' or 'sparkle'. */
+    look: string;
+}
+
 // ---- the registry -----------------------------------------------------------------
 
 declare module '../src/types' {
@@ -408,6 +413,7 @@ declare module '../src/types' {
         filings: FilingsContext;
         pulse: PulseContext;
         petals: PetalsContext;
+        fieldFrame: FieldFrameContext;
     }
     /** event name → its payload. (`page:hit` is declared by the engine itself.) */
     interface EngineEventMap {

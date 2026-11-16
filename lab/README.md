@@ -125,6 +125,8 @@ inside is a window onto the scene.
 - **Made for inputs.** A card for each of `Liquid`, `Sand`, `Frost`, `Fuse`, `Circuit`,
   `Filings`, `Pulse` and `Petals`, with a switch, a text field, a button and a slider carrying
   its tag. The slider is a real range input laid invisibly over a bar whose inside is the picture.
+  The last card, `FieldFrame`, draws round its controls instead: a sharp frame on the one that
+  has the keyboard focus.
 
 The page writes no state into the tags itself: `attachFieldTags()` does, from the controls. The
 one call it makes is `refresh()`, after it sets `.checked` from script. The cards only tint what
