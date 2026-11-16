@@ -3,14 +3,14 @@ import { approach, clamp, lerp, randomNumber, smoothstep } from '../../src/math'
 import type { EffectContext, TickContext, TimedContext, Vector3 } from '../../src/types';
 import type { SerpentContext } from '../contracts';
 import { SerpentBody, type SerpentPose } from './SerpentBody';
-import { bodyWidth, distanceToSegment, followChain, orbitPoint, segmentSpacing, turnRate } from './steering';
+import { bodyWidth, distanceToSegment, followChain, segmentSpacing, turnRate } from './steering';
 
 export interface SerpentOptions {
     /** Body segments, the head included. More is a longer serpent. Default `SEGMENTS` (46); kept within 8..120. */
     segments?: number;
     /** Multiplier on swimming speed (1 is about 0.13 px/ms). Default `SPEED` (1); kept within 0.1..4. */
     speed?: number;
-    /** 0..1: how strongly it is drawn to the pointer. 0 ignores the pointer. Default `CURIOSITY` (0.6). */
+    /** Above 0 it swims to the pointer whenever the pointer is over the stage (how far above 0 makes no difference); 0 ignores the pointer. Default `CURIOSITY` (0.6); kept within 0..1. */
     curiosity?: number;
     /** Chase the flock of birds when there is one on the page. Default `HUNT` (true). */
     hunt?: boolean;
@@ -27,9 +27,8 @@ const TAU = Math.PI * 2;
  * built from what the other effects publish.
  *
  * What it listens to:
- *   - the pointer: it comes over and circles it, and loses interest when the pointer has been
- *     still for a while (20 seconds). A press within 200 px of its head frightens it (not a press
- *     on a link or button).
+ *   - the pointer: it swims to it (option `curiosity`). A press within 200 px of its head
+ *     frightens it (not a press on a link or button).
  *   - `flock` context: it chases the birds in flight, and that outranks the pointer (option
  *     `hunt`). It never catches one; they read its context and flee.
  *   - `singularity` and `rainEater` contexts: it steers clear of both.
@@ -63,10 +62,6 @@ export class Serpent extends Effect<SerpentContext> {
     /** The left-right swing of its heading that writes the S-curves: its period in ms and its size in radians. */
     public static readonly UNDULATION_MS = 1800;
     public static readonly UNDULATION = 0.5;
-    /** Radius of the circle it swims around the pointer, in pixels. */
-    public static readonly ORBIT_RADIUS = 130;
-    /** Milliseconds a pointer that does not move keeps its interest. */
-    public static readonly INTEREST_MS = 20000;
     /** Milliseconds it flees after a fright, and milliseconds `excited` takes to fall from 1 to 0. */
     public static readonly FLEE_MS = 1500;
     public static readonly CALM_MS = 3000;
@@ -113,13 +108,8 @@ export class Serpent extends Effect<SerpentContext> {
     private readonly wander = { x: 0, y: 0 };
     private readonly wanderGoal = { x: 0, y: 0 };
     private wanderFor = 0;
-    /** Which way round the pointer it goes: +1 clockwise on screen, -1 the other way. */
-    private orbit = 1;
-    private readonly lastPointer = { x: -1, y: -1 };
-    private pointerStillFor = 0;
     private depthPhase = 0;
     private readonly force: Vector3 = { x: 0, y: 0 };
-    private readonly scratch = { x: 0, y: 0 };
     private readonly context: SerpentContext;
 
     constructor(options: SerpentOptions = {}) {
@@ -315,26 +305,11 @@ export class Serpent extends Effect<SerpentContext> {
         aim.x = this.wander.x;
         aim.y = this.wander.y;
 
-        // Curious: come over to the pointer and circle it, rather than sit on it.
+        // Curious: go to the pointer.
         const mouse = tick.mousePosition;
         if (mouse && this.curiosity > 0 && mouse.x >= 0 && mouse.x <= width && mouse.y >= 0 && mouse.y <= height) {
-            const moved = Math.hypot(mouse.x - this.lastPointer.x, mouse.y - this.lastPointer.y) > 3;
-            this.pointerStillFor = moved ? 0 : this.pointerStillFor + dt;
-            this.lastPointer.x = mouse.x;
-            this.lastPointer.y = mouse.y;
-            const interest = 1 - smoothstep(Serpent.INTEREST_MS, Serpent.INTEREST_MS * 1.3, this.pointerStillFor);
-            const pull = Math.min(1, this.curiosity * 1.5) * interest;
-            if (pull > 0) {
-                const dx = head.x - mouse.x;
-                const dy = head.y - mouse.y;
-                if (Math.hypot(dx, dy) > Serpent.ORBIT_RADIUS * 1.6) {
-                    // Still on its way: go round the way it is already heading.
-                    this.orbit = dx * Math.sin(this.heading) - dy * Math.cos(this.heading) >= 0 ? 1 : -1;
-                }
-                const ahead = orbitPoint(head.x, head.y, mouse.x, mouse.y, Serpent.ORBIT_RADIUS, this.orbit, 0.7, this.scratch);
-                aim.x = lerp(aim.x, ahead.x, pull);
-                aim.y = lerp(aim.y, ahead.y, pull);
-            }
+            aim.x = mouse.x;
+            aim.y = mouse.y;
         }
 
         // Hungry: go for the middle of the birds in flight, a little ahead of where they are going.
@@ -466,7 +441,6 @@ export class Serpent extends Effect<SerpentContext> {
         this.fleeFor = 0;
         this.push.x = 0;
         this.push.y = 0;
-        this.pointerStillFor = 0;
         this.context.excited = 0;
     }
 }
