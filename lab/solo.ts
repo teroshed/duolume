@@ -1,4 +1,4 @@
-import { attachFieldTags, attachPageRipples, Effect, VisualsManager, type AnyEffect, type TickInput } from '../src';
+import { attachFieldTags, attachFieldText, attachPageRipples, Effect, VisualsManager, type AnyEffect, type TickInput } from '../src';
 
 /**
  * Solo: run a chosen few effects on an otherwise empty stage. For working on one effect, and
@@ -154,6 +154,7 @@ for (const name of requested) {
     manager.addEffect(new (available.get(name)!)(options[name]));
 }
 attachPageRipples(manager);
+attachFieldText(manager);
 label.textContent = requested.join(' + ');
 
 export interface SoloInput {

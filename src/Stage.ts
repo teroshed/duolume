@@ -248,6 +248,11 @@ export class Stage {
         return this.anchors.get(name)?.rect;
     }
 
+    /** The page element that carries `data-fx-anchor="name"`, if it is on the page. */
+    public element(name: string): Element | undefined {
+        return this.anchors.get(name)?.element;
+    }
+
     public get allAnchors(): readonly AnchorRect[] {
         return this.anchorList;
     }

@@ -5,7 +5,7 @@ import type { EffectContext, Theme, TickContext, TimedContext, Vector3 } from '.
 import type { FuseContext } from '../contracts';
 import { FieldLayer } from '../Field/FieldLayer';
 import { FieldSet, type Field } from '../Field/FieldSet';
-import { Border, makeBorderPoint, type BorderPoint } from './border';
+import { Border, makeBorderPoint, type BorderPoint } from '../Field/border';
 
 export interface FuseOptions {
     /** How fast the spark runs, in px/ms. Short borders run a little slower and long ones faster, so a lap takes about two seconds. Default `SPEED` (0.12). */

@@ -45,9 +45,53 @@ export interface PageHitEvent {
     kind: string;
 }
 
+/** One character of a field's text and where it is drawn. */
+export interface FieldLetter {
+    /** The character (one code point: an emoji is one letter). A bullet in a password field. */
+    char: string;
+    /** Its left and right edge, in stage pixels. */
+    start: number;
+    end: number;
+}
+
+/**
+ * Emitted by the page, through `attachFieldText(manager)`, every time the text of a field
+ * changes: a letter typed, a word deleted, a paste. An effect reads it with
+ * `tick.events('field:text')`; the page can listen with `manager.on('field:text', …)`.
+ *
+ * A password field never gives its text away: every character is a bullet, here and in the
+ * letters.
+ */
+export interface FieldTextEvent {
+    /** `data-fx-anchor` name of the field, or of the element around it. Empty when it has none. */
+    anchor: string;
+    /** The whole text as it is now. */
+    text: string;
+    /** What this edit put in. Empty for a deletion. */
+    added: string;
+    /** What this edit took out. Empty when letters were only added. */
+    removed: string;
+    /** Where the edit happened: the index, in characters of `text`, of the first one that changed. */
+    at: number;
+    /** Where the caret is now, in characters of `text`; -1 when the field does not say. */
+    caret: number;
+    /**
+     * Every character of `text` with its left and right edge in stage pixels, in order, so
+     * `letters[at]` is the first letter that was added. Empty when the text cannot be measured:
+     * a text area (its lines wrap) and right-to-left text.
+     */
+    letters: FieldLetter[];
+    /** Where the letters that were taken out had been, as of the edit before. Empty when unknown. */
+    removedLetters: FieldLetter[];
+    /** Top and bottom of the field's box, in stage pixels. */
+    top: number;
+    bottom: number;
+}
+
 /** Registry of one-shot event payloads, keyed by event type. Extended the same way. */
 export interface EngineEventMap {
     'page:hit': PageHitEvent;
+    'field:text': FieldTextEvent;
 }
 
 /**

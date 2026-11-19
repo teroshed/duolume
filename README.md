@@ -174,6 +174,11 @@ is a ready-made listener: it plays a ripple on top of the element that was hit, 
 engine's own canvas (behind the page) cannot do. It works for a full-page canvas and for one
 placed anywhere in the page.
 
+An event names the element it is about (`event.payload.anchor`). `manager.element(name)` gives
+the element itself, so a listener needs no selector:
+`manager.on('page:hit', (e) => manager.element(e.payload.anchor)?.classList.add('hit'))`. The page
+can send events too: `manager.emit(type, payload)` reaches every effect in the next tick.
+
 ## Inside inputs
 
 The canvas is behind the page, so an element with a clear inside is a window onto the scene. An
@@ -222,6 +227,46 @@ write them itself. After changing `.checked` or `.value` from script, which fire
 
 A window shows the scene through whatever the page paints over it. A tinted card dims it; a card
 with `backdrop-filter: blur` smears everything inside it, so keep windows off blurred surfaces.
+
+### Leaving the control
+
+An input effect does not have to stay inside. `Orbit`, `Ivy`, `Arc`, `Echo` and `Glyphs` draw
+round the element instead: moons circling it, tendrils growing out of its edge, arcs jumping off
+it and reaching for the pointer, its own outline leaving it in rings, marks rising from the
+letters typed in it. They are asked for the same way (`data-fx-tags="ivy"`) and follow the same
+words. They draw on the canvas, which is behind the page, so they show where the page round the
+control is see-through (a tinted card is) and pass behind whatever it paints solid. Leave room
+round a control that carries one: a tendril reaches about 56 px.
+
+### What is typed
+
+`attachFieldText(manager)` tells the scene about text. Every time the text of an `<input>` or a
+`<textarea>` changes it emits `field:text`:
+
+```ts
+attachFieldText(manager);
+
+// in an effect
+for (const event of tick.events('field:text')) {
+    const { anchor, text, added, removed, at, caret, letters } = event.payload;
+    const first = letters[at]; // the first letter just typed: { char, start, end }, in stage pixels
+}
+```
+
+| Field | Holds |
+| --- | --- |
+| `anchor` | the field's `data-fx-anchor` name (or that of the element round it) |
+| `text` | the whole text now |
+| `added`, `removed` | what this edit put in and took out; a paste over a selection has both |
+| `at` | where it happened: the index in `text` of the first character that changed |
+| `caret` | where the caret is, or -1 |
+| `letters` | every character with its left and right edge in stage pixels, measured with the field's own font, spacing, alignment and scroll |
+| `removedLetters` | where the characters that were taken out had been |
+| `top`, `bottom` | the field's box |
+
+Indexes count characters, so an emoji is one. `letters` is empty for a text area (its lines wrap)
+and for right-to-left text. A password field is reported as bullets: its text never reaches the
+scene. `Glyphs` is the effect that uses all of it.
 
 ## On the page
 
@@ -408,6 +453,11 @@ key belongs to which effect.
 | `Flock` | Pixi | the force field; the `rainEater`, `serpent` and `singularity` contexts and a pressed or fast pointer (kept clear of); `crystal:exploded`, `rainEater:exploded`, `lightning:strike`, `firework:exploded`, `meteor:impact`, `bubble:popped`, `singularity:collapsed`, presses and `page:hit` frighten it; DOM ledges (perches); the `rain` context (no perching in rain) | `count`, `perched`, `center` and `heading`; `flock:startled` |
 | `Serpent` | Three.js (instanced gems) | the pointer; the `flock` context (it hunts the birds); the `singularity` and `rainEater` contexts (it steers clear); `crystal:exploded`, `rainEater:exploded`, `meteor:impact`, `firework:exploded` and `singularity:collapsed` frighten it; `lightning:strike` runs down its body; the force field | its head position, velocity, length and `excited`; a vortex wake and a small repel force |
 | `Constellation` | Pixi | every event that has a position (`lightning:strike`, `rainEater:exploded`, `singularity:collapsed`, `crystal:exploded`, `meteor:impact`, `firework:exploded`, `bubble:popped`, `flock:startled`, `fireflies:synced`) and presses start a spark; the pointer is one more point; the force field | its context only: `nodes`, `links`, `signals` |
+| `Orbit` | Pixi, round elements tagged `orbit`, outside them | the element's state and value (how fast the moons turn), the pointer over it, the keyboard focus, presses (they fling the moons out) | how many moons are out |
+| `Ivy` | Pixi, out of the edge of elements tagged `ivy` | the element's state and value (how far it has grown), the force field (wind sways the tips), presses (it shivers) | how many tendrils are out |
+| `Arc` | Pixi, off the edge of elements tagged `arc` | the element's state and value (how often it arcs), the pointer (a bolt reaches for it when it is near), presses and `lightning:strike` (it discharges) | how many arcs are in the air |
+| `Echo` | Pixi, rings leaving elements tagged `echo` | presses, switching, a slider's value as it moves, the keyboard focus | how many rings are travelling |
+| `Glyphs` | Pixi, above and below fields tagged `glyphs` | `field:text` from `attachFieldText(manager)`: what was typed and deleted, and where each letter is | how many letters its fields hold and how many marks are in the air |
 | `FieldFrame` | the page itself (`host.page`), round elements tagged `frame` | the word `focus` in the element's tags (`attachFieldTags()`, `manager.focus(name)`); the other word picks the look: `hud`, `filigree`, `laurel`, `sparkle` | its default look |
 | `Miniatures` | Pixi, inside page elements tagged `mini` | the element's state and the pointer over it; the events of the effect each miniature pictures (`lightning:strike`, `firework:exploded`, `rain:eaten`, `crystal:exploded`, `meteor:impact`, `bubble:popped`, …); the `wind` context; presses on the open stage | how many windows it draws in |
 | `Liquid` | Pixi, inside elements tagged `liquid` | the element's state and value (how full it is), the pointer (a press pokes the surface), the element being moved (it sloshes), the force field | how many elements it draws in |

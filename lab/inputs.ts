@@ -1,3 +1,4 @@
+import { Arc } from '../effects/Arc/Arc';
 import { AuroraRibbons } from '../effects/AuroraRibbons/AuroraRibbons';
 import { Bubbles } from '../effects/Bubbles/Bubbles';
 import { Circuit } from '../effects/Circuit/Circuit';
@@ -5,12 +6,15 @@ import { ClickExplosion } from '../effects/ClickExplosions/ClickExplosion';
 import { Confetti } from '../effects/Confetti/Confetti';
 import { Constellation } from '../effects/Constellation/Constellation';
 import { Crystals } from '../effects/Crystals/Crystals';
+import { Echo } from '../effects/Echo/Echo';
 import { FieldFrame } from '../effects/FieldFrame/FieldFrame';
 import { Filings } from '../effects/Filings/Filings';
 import { Fireflies } from '../effects/Fireflies/Fireflies';
 import { FireworksEffect } from '../effects/Fireworks/FireworksEffect';
 import { Flock } from '../effects/Flock/Flock';
 import { Frost } from '../effects/Frost/Frost';
+import { Glyphs } from '../effects/Glyphs/Glyphs';
+import { Ivy } from '../effects/Ivy/Ivy';
 import { Fuse } from '../effects/Fuse/Fuse';
 import { LightningStorm } from '../effects/LightningStorm/LightningStorm';
 import { Liquid } from '../effects/Liquid/Liquid';
@@ -18,6 +22,7 @@ import { Meadow } from '../effects/Meadow/Meadow';
 import { Meteors } from '../effects/Meteors/Meteors';
 import { Miniatures } from '../effects/Miniatures/Miniatures';
 import { Nebula } from '../effects/Nebula/Nebula';
+import { Orbit } from '../effects/Orbit/Orbit';
 import { Petals } from '../effects/Petals/Petals';
 import { Pulse } from '../effects/Pulse/Pulse';
 import { Rain } from '../effects/Rain/Rain';
@@ -28,7 +33,7 @@ import { Singularity } from '../effects/Singularity/Singularity';
 import { Snow } from '../effects/Snow/Snow';
 import { Tide } from '../effects/Tide/Tide';
 import { Wind } from '../effects/Wind/Wind';
-import { attachFieldTags, attachPageRipples, GradientType, VisualsManager, type AnyEffect } from '../src';
+import { attachFieldTags, attachFieldText, attachPageRipples, GradientType, VisualsManager, type AnyEffect } from '../src';
 
 /**
  * The Inputs page: controls as windows onto the scene.
@@ -110,6 +115,15 @@ const MADE: readonly (readonly [tag: string, title: string, text: string, make: 
     ['frame', 'Frame', 'Not in the control but round it: a sharp frame with pictures on it while it has the focus. Tab through these.', () => new FieldFrame()],
 ];
 
+/** The effects that leave the control: same shape as `MADE`, on cards with more room round each control. */
+const OUTSIDE: typeof MADE = [
+    ['orbit', 'Orbit', 'Moons circle the control, just off its edge. A slider sets their speed; a press flings them out.', () => new Orbit()],
+    ['ivy', 'Ivy', 'Switched on, tendrils grow out of the edge and over the page. Switched off, they draw back in.', () => new Ivy()],
+    ['arc', 'Arc', 'A charged thing: arcs jump off its edge, a bolt reaches for the pointer when it comes near, a press discharges it.', () => new Arc()],
+    ['echo', 'Echo', 'Its own outline leaves it in rings: on a press, on a switch, as a slider moves, and quietly while it has the focus.', () => new Echo()],
+    ['glyphs', 'Glyphs', 'Type in the field. Every letter sends a mark as wide as itself up out of the field; a deleted one drops; the line below is as long as the text.', () => new Glyphs()],
+];
+
 // ---- the page's controls -----------------------------------------------------------
 
 const toggle = (id: string, tags: string, label: string, checked: boolean, attributes = ''): string =>
@@ -121,9 +135,9 @@ $<HTMLElement>('#switches').innerHTML =
     SWITCHES.map(([name, label]) => toggle(`switch-${name}`, `mini ${name}`, label, ON_AT_START.includes(name), `data-effect="${name}"`)).join('') +
     toggle('switch-surprise', 'mini drift', 'Surprise<small id="surprise-name">a random one each time</small>', false);
 
-$<HTMLElement>('#made').innerHTML = MADE.map(
+const cards = (list: typeof MADE, roomy: boolean): string => list.map(
     ([tag, title, text]) => `
-      <article class="card" data-fx-anchor="card-${tag}" data-fx-tags="ledge">
+      <article class="card${roomy ? ' roomy' : ''}" data-fx-anchor="card-${tag}" data-fx-tags="ledge">
         <h2>${title}</h2>
         <p>${text}</p>
         <div class="samples">
@@ -134,6 +148,9 @@ $<HTMLElement>('#made').innerHTML = MADE.map(
         </div>
       </article>`,
 ).join('');
+
+$<HTMLElement>('#made').innerHTML = cards(MADE, false);
+$<HTMLElement>('#outside').innerHTML = cards(OUTSIDE, true);
 
 // ---- the scene ---------------------------------------------------------------------
 
@@ -146,7 +163,7 @@ for (const [, make] of SCENE) {
 }
 // The input effects go last: what they draw inside a control sits over the rest of the 2D scene.
 manager.addEffect(new Miniatures());
-for (const [, , , make] of MADE) {
+for (const [, , , make] of [...MADE, ...OUTSIDE]) {
     manager.addEffect(make());
 }
 
@@ -154,6 +171,8 @@ for (const [, , , make] of MADE) {
 manager.setComfort({ flash: 0.4, ripple: 0.7, bloom: 0.85 });
 attachPageRipples(manager);
 const fields = attachFieldTags();
+// What is typed, and where each letter is: `Glyphs` answers it.
+attachFieldText(manager);
 
 // ---- switching ---------------------------------------------------------------------
 

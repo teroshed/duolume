@@ -7,7 +7,7 @@ import { PopulationGovernor, type GovernorOptions } from './Governor';
 import { InputState } from './Input';
 import { Simulation, type TickInput } from './Simulation';
 import { Stage } from './Stage';
-import type { EngineEvent, LevelInfo, Theme, TimedContext } from './types';
+import type { EngineEvent, LevelInfo, PayloadOf, Theme, TimedContext } from './types';
 
 export const DEFAULT_THEME: Theme = {
     bgTop: 0x0b1018,
@@ -296,6 +296,23 @@ export class VisualsManager {
      */
     public on<K extends string>(type: K, listener: (event: EngineEvent<K>) => void): () => void {
         return this.simulation.on(type, listener);
+    }
+
+    /**
+     * The page element named `name` (its `data-fx-anchor`), or undefined when it is not on the
+     * page. Events carry the name, so this is how a listener gets from one to the element:
+     * `manager.on('page:hit', (e) => manager.element(e.payload.anchor)?.classList.add('hit'))`.
+     */
+    public element(name: string): Element | undefined {
+        return this.stage.element(name);
+    }
+
+    /**
+     * Send an engine event from the page: `manager.emit('field:text', { … })`. Every effect finds
+     * it in `tick.events(type)` during the next tick, exactly as if an effect had sent it.
+     */
+    public emit<K extends string>(type: K, payload: PayloadOf<K>): void {
+        this.simulation.tickContext.emit(type, payload);
     }
 
     /** Scale flashes, shock ripples and glow for viewer comfort (1 = as authored, 0 = off). */

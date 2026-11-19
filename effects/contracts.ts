@@ -374,6 +374,33 @@ export interface PetalsContext extends FieldsContext {
     petals: number;
 }
 
+export interface OrbitContext extends FieldsContext {
+    /** Moons out round elements that are on. */
+    moons: number;
+}
+
+export interface EchoContext extends FieldsContext {
+    /** Rings travelling outward right now. */
+    rings: number;
+}
+
+export interface ArcContext extends FieldsContext {
+    /** Small arcs in the air right now. */
+    arcs: number;
+}
+
+export interface IvyContext extends FieldsContext {
+    /** Tendrils that have grown out of their element. */
+    tendrils: number;
+}
+
+export interface GlyphsContext extends FieldsContext {
+    /** Characters in its fields, as of the last `field:text` from each. */
+    letters: number;
+    /** Marks in the air: one for each letter just typed or deleted. */
+    marks: number;
+}
+
 export interface FieldFrameContext {
     /** The look of a framed element whose tags name none: 'hud', 'filigree', 'laurel' or 'sparkle'. */
     look: string;
@@ -413,9 +440,14 @@ declare module '../src/types' {
         filings: FilingsContext;
         pulse: PulseContext;
         petals: PetalsContext;
+        orbit: OrbitContext;
+        echo: EchoContext;
+        arc: ArcContext;
+        ivy: IvyContext;
+        glyphs: GlyphsContext;
         fieldFrame: FieldFrameContext;
     }
-    /** event name → its payload. (`page:hit` is declared by the engine itself.) */
+    /** event name → its payload. (`page:hit` and `field:text` are declared by the engine itself.) */
     interface EngineEventMap {
         'rain:eaten': RainEatenEvent;
         'rain:landed': RainLandedEvent;
