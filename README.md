@@ -153,7 +153,18 @@ plane `z = 0` matches the Pixi layer pixel for pixel (`stage.toWorld(x, y, z)`,
 `Stage` also tracks DOM elements marked `data-fx-anchor="name"` (optional
 `data-fx-tags="ledge"`), so effects can react to the page: rain lands on tagged elements and
 crystal shards are stopped by them. `tick.stage.tagged('ledge')` is the list on screen now;
-`tick.stage.anchor('name')` is one element's rectangle. The manager keeps following its
+`tick.stage.anchor('name')` is one element's rectangle.
+
+A tag can end in a number: `data-fx-tags="ledge-30"`. The element still counts as `ledge`
+(`tagged('ledge')` and `tags.includes('ledge')` find it), and the number is on the rectangle as
+`numbers.ledge` (30). For a ledge it is the percent of falling things that fall through:
+`ledge-0` is solid, `ledge-100` stops nothing that falls, but birds still perch on it, grass
+still grows on it and fireflies still shelter under it. Rain, snow, confetti, petals, meteors,
+bubbles and crystal shards honour it; each piece rolls one number at birth and passes when
+`roll * 100` is below the ledge's number, so it never flickers. A plain `ledge` keeps each
+effect's own rule.
+
+The manager keeps following its
 `anchors` root: elements added, removed or retagged after `create` are picked up before the next
 frame. `stage.observe(name, element, tags)` adds one by hand.
 
@@ -212,6 +223,41 @@ write them itself. After changing `.checked` or `.value` from script, which fire
 A window shows the scene through whatever the page paints over it. A tinted card dims it; a card
 with `backdrop-filter: blur` smears everything inside it, so keep windows off blurred surfaces.
 
+## On the page
+
+The canvas goes through the bloom at a capped resolution, so a 1 px line drawn there comes out
+soft. For a sharp border or an ornament on a page element, an effect draws on the page itself:
+`this.host.page`, a fourth place next to `pixi`, `pixiFront` and `three`. Two calls, made in
+`onRender` every frame; whatever was not asked for in a frame is taken away after it:
+
+```ts
+public onRender(): void {
+    this.host.page.picture('card', { image: '/star.svg', at: [1, 0] }); // on the top-right corner
+    this.host.page.frame('card'); // a 1 px line round it, 6 px out, following its corners
+}
+```
+
+- `on` is an anchor's name, an anchor (`stage.tagged('frame')` gives them), a `Field`, or any
+  `{ name, x, y, width, height }`. Missing or off screen: nothing is drawn.
+- `shown` is how far it has appeared: a number 0..1 is used as given; `true` or `false` fades it
+  in or out by itself over `fade` ms (260) on the real clock, so it works while the scene is
+  paused; left out, it is simply there. Under reduced motion there is no running bead, marching
+  dash, rocking or twinkling, and a piece is there or gone in one frame.
+- A `Picture` is any image file (`size`, `at`, `origin`, `gap`, `flip`, `mirror`, `span`,
+  `grows`, `sway`, `twinkle`); its shape is used and `color` paints it: a theme colour by name
+  (`'accent'`, `'ink'`, following `setTheme`), any CSS colour, or `'own'` for the file's colours.
+  A `Frame` is the line (`gap`, `radius`, `line`, `dash`, `bead`, `color`) with pictures on it.
+  Each piece takes a `zIndex` among the page's elements; left out, it sits right above the canvas.
+- The stage measures each element's corner radius (`AnchorRect.radius`), so a frame follows it.
+
+The layer is a `<div>` after the canvas, over it and clipped to it, that never takes the pointer.
+The manager makes it on first use, hides it while the effect is off and removes it with the effect.
+
+`FieldFrame` is built on it. Tag an element and it gets a frame while it has the keyboard focus:
+`<input data-fx-anchor="email" data-fx-tags="frame laurel" />`, with `attachFieldTags()` on the
+page. `manager.focus('email')` plays the focus look from code and `manager.unfocus('email')` ends
+it, also while paused.
+
 ## Input
 
 By default the manager listens to the whole window: as a background behind a page, a press
@@ -252,11 +298,57 @@ machine being slow.
 Using a `ParticleSet`: call `govern(tick)` at the start of every tick, spawn while
 `canSpawn()`, and `sweep(tick)` at the end. Without `govern`, nothing ever spawns.
 
+## How much and how rich: intensity, detail and levels
+
+Two numbers decide how heavy a scene is. **Intensity** is how much of an effect there is. A
+**level** is how rich it looks. Every effect has an intensity. Only some effects have levels.
+
+```ts
+manager.setIntensity('rain', 0.4);                // a little rain
+manager.setIntensity({ rain: 0.4, meadow: 1 });   // a scene is a plain object
+manager.setIntensity(0.6);                        // the whole scene, multiplied into each
+manager.setDetail(0.5);                           // how rich the whole scene may look
+manager.setLevel('meadow', MeadowLevel.Lines);    // fix one effect's look
+manager.setLevel('meadow', undefined);            // give it back to the machine
+```
+
+**Intensity** is 0 to 1, default 1, for every effect. The effect reads its own, times the
+scene's, as `tick.intensity` (and `timed.intensity` while drawing). A `ParticleSet` already
+allows `capacity × budget × intensity`, so "0.4 rain" is 40 percent of the drops with no change
+to `Rain`, and the surplus leaves with its exit. Zero is off, the same as
+`setEffectEnabled(name, false)`; raising it again switches the effect back on.
+`getIntensity(name)` reads back what was set for one effect, `getIntensity()` the scene's.
+
+**Levels** are an effect's looks, cheapest first, declared as a numeric enum. The meadow has four:
+
+| `MeadowLevel` | What it draws |
+| --- | --- |
+| `Lines` | Each blade is one straight line. |
+| `Blades` | Curved blades, standing still. |
+| `Wind` | Curved blades that lean with the wind. |
+| `Full` | Shaded blades, wind and everything. |
+
+Unless the page fixes a look, the engine picks it from the scene's **detail** (0 to 1, default 1,
+`setDetail`) times the frame budget. Full detail on a machine that keeps up gives the richest
+look. A machine that struggles steps down by itself, and back up when there is room. A look
+never flickers: it moves one step at a time, stays at least `LEVEL_HOLD_MS` (1.5 s) after each
+move, and steps up only once there is `LEVEL_MARGIN` (0.1) to spare.
+
+A page fixes a look with the effect's option, `new Meadow({ level: MeadowLevel.Lines })`, or at
+any time with `setLevel`, which wins over the option. `manager.getLevels()` lists every effect
+that has looks: the look it draws now (number and name), all its look names, and whether it is
+pinned.
+
+**An effect with no enum has one look.** It ignores detail, `setLevel` on it does nothing, and it
+is not in `getLevels()`. That is the rule, not a gap: only effects with a real cheaper drawing
+declare levels. Rain has one look; how much of it falls is its intensity.
+
 ## Viewer comfort
 
 `manager.setComfort({ flash, ripple, bloom })` scales ambient flashes, shock-ring distortion
 and glow in the compositor without touching the simulation. The lab's five intensity levels
-(Minimal to Max) are built on it.
+(Minimal to Max) are built on it. Comfort is about the viewer's eyes, not about load, so it
+stays apart from intensity and detail.
 
 ## Frame pipeline
 
@@ -269,6 +361,20 @@ and glow in the compositor without touching the simulation. The lab's five inten
 
 Pixi and Three.js each keep their own WebGL context. That costs one or two texture uploads per
 frame and is the arrangement both libraries support without patching.
+
+### A transparent stage
+
+`VisualsManager.create(canvas, { transparent: true })` leaves the backdrop out. Where no effect
+draws, the canvas is see-through, so the page behind it shows (or the desktop, in a transparent
+window). Effects are written exactly as before. What differs:
+
+- A glow keeps a halo: light with nothing under it brings its own alpha, as much as its brightest
+  channel, so it shows over a bright page too.
+- No vignette, and no dither on empty pixels: a pixel nothing drew on is exactly zero.
+- `surfaces.flash` and `surfaces.focus` light the backdrop, so they do nothing. Glass that bends
+  the backdrop (crystals, bubbles, the singularity) bends only the Pixi layer and looks darker.
+- Shock rings still bend the layers, and still leave their faint ring of light.
+- Give the canvas no CSS background. The option cannot be changed after the manager is created.
 
 ## The effect library
 
@@ -295,13 +401,14 @@ key belongs to which effect.
 | `Nebula` | Three.js (one shader quad that only adds light) | the `rain` context thickens it; the force field carries it; `lightning:strike`, `firework:exploded`, `meteor:impact`, `crystal:exploded`, `rainEater:exploded`, `singularity:collapsed` and `fireflies:synced` light it from inside; the pointer | its density and how many lights glow in it |
 | `Snow` | Pixi | the force field (wind slants the flakes and shaves the piles); DOM ledges (piles settle on them); the pointer wipes piles; `crystal:exploded`, `rainEater:exploded`, `lightning:strike`, `meteor:impact` and `singularity:collapsed` knock snow off, `firework:exploded` melts it; `page:hit` | its context only: flakes, settled, deepest |
 | `Tide` | Pixi (three bands of water) | `rain:landed` raises it and rings it; the force field (wind sets the swell, shock rings push the surface); presses at the water; bursts near it splash it; `lightning:strike`, `firework:exploded` and `meteor:impact` are reflected | its `level`, `surfaceY` and how far it has `raised` |
-| `Meadow` | Pixi (one mesh per row of grass) | the force field (gusts roll through it, shock rings flatten it); the pointer parts it, and a press cuts it at the pointer's height (hold and drag to scythe); what is cut waits 5 to 10 seconds, then grows back blade by blade; `lightning:strike` and `meteor:impact` scorch it; `rain:landed` flicks blades; DOM ledges (grass grows on them) | how many blades stand and how far it leans |
+| `Meadow` | Pixi (one mesh per row of grass); four looks, `MeadowLevel` `Lines` to `Full`; intensity is how many blades show | the force field (gusts roll through it, shock rings flatten it); the pointer parts it, and a press cuts it at the pointer's height (hold and drag to scythe); what is cut waits 5 to 10 seconds, then grows back blade by blade; `lightning:strike` and `meteor:impact` scorch it; `rain:landed` flicks blades; DOM ledges (grass grows on them). Below `Full` it feels only the stage-wide wind, and below `Wind` nothing moves it | how many blades stand and how far it leans |
 | `Bubbles` | Three.js (glass spheres that refract the backdrop and the Pixi layer) | the force field; DOM ledges (they stop under them and slide round); presses pop them; the `rain` context (a droplet may pop one); the `rainEater` and `singularity` contexts; `crystal:exploded`, `rainEater:exploded`, `lightning:strike`, `meteor:impact`, `firework:exploded` and `singularity:collapsed` set off pops | where every bubble is; `bubble:popped`, `page:hit` |
 | `Confetti` | Three.js (instanced paper pieces) | `firework:exploded`, `singularity:collapsed` and `fireflies:synced` set it off; the force field; presses lift lying pieces; DOM ledges (pieces come to rest on them) | how many pieces fly and lie; `page:hit` |
 | `Fireflies` | Pixi | violent events scatter them (`lightning:strike`, `firework:exploded`, `crystal:exploded`, `rainEater:exploded`, `meteor:impact`, `bubble:popped`, `flock:startled`, `singularity:collapsed`) and so do presses; the `rain` context (they shelter under DOM ledges); the `serpent` context; the force field | the `fireflies` context (`count`, `sync`), `fireflies:synced` |
 | `Flock` | Pixi | the force field; the `rainEater`, `serpent` and `singularity` contexts and a pressed or fast pointer (kept clear of); `crystal:exploded`, `rainEater:exploded`, `lightning:strike`, `firework:exploded`, `meteor:impact`, `bubble:popped`, `singularity:collapsed`, presses and `page:hit` frighten it; DOM ledges (perches); the `rain` context (no perching in rain) | `count`, `perched`, `center` and `heading`; `flock:startled` |
 | `Serpent` | Three.js (instanced gems) | the pointer; the `flock` context (it hunts the birds); the `singularity` and `rainEater` contexts (it steers clear); `crystal:exploded`, `rainEater:exploded`, `meteor:impact`, `firework:exploded` and `singularity:collapsed` frighten it; `lightning:strike` runs down its body; the force field | its head position, velocity, length and `excited`; a vortex wake and a small repel force |
 | `Constellation` | Pixi | every event that has a position (`lightning:strike`, `rainEater:exploded`, `singularity:collapsed`, `crystal:exploded`, `meteor:impact`, `firework:exploded`, `bubble:popped`, `flock:startled`, `fireflies:synced`) and presses start a spark; the pointer is one more point; the force field | its context only: `nodes`, `links`, `signals` |
+| `FieldFrame` | the page itself (`host.page`), round elements tagged `frame` | the word `focus` in the element's tags (`attachFieldTags()`, `manager.focus(name)`); the other word picks the look: `hud`, `filigree`, `laurel`, `sparkle` | its default look |
 | `Miniatures` | Pixi, inside page elements tagged `mini` | the element's state and the pointer over it; the events of the effect each miniature pictures (`lightning:strike`, `firework:exploded`, `rain:eaten`, `crystal:exploded`, `meteor:impact`, `bubble:popped`, …); the `wind` context; presses on the open stage | how many windows it draws in |
 | `Liquid` | Pixi, inside elements tagged `liquid` | the element's state and value (how full it is), the pointer (a press pokes the surface), the element being moved (it sloshes), the force field | how many elements it draws in |
 | `Sand` | Pixi, inside elements tagged `sand` | the element's state and value (which end the sand lies at), the pointer (a press dents the pile), the element being moved, the force field | that, and the grains in the air |
@@ -316,7 +423,8 @@ key belongs to which effect.
 `effects/Crystal/CrystalBody.ts` is not an effect but a building block shared by `RainEater`
 and `Crystals`: a glass solid whose facets are particles. When it breaks, each facet flies
 on its own, and half of them notice the page: an element tagged `ledge` stops a shard at its
-edge with a 20–50% chance, and anywhere inside it with a small chance per tick. A stopped
+edge with a 20–50% chance, and anywhere inside it with a small chance per tick. On a
+numbered `ledge-N` every shard plays: N percent pass through and the rest stop at the edge. A stopped
 shard stays on the element, then flies home; until it does, the crystal has a hole there.
 Rain follows the same wall rule (`effects/Rain/PageWalls.ts`), and the water it leaves pools,
 hangs from the element's underside and runs down its sides (`effects/Rain/PageWater.ts`).

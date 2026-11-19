@@ -10,7 +10,7 @@ import { SnowCap } from './SnowCap';
 export interface SnowOptions {
     /** Flakes in the air at full frame budget (0..1500). Defaults to `Snow.FLAKE_COUNT` (400). */
     flakeCount?: number;
-    /** Whether snow settles on page elements tagged `ledge`. Defaults to true. */
+    /** Whether snow settles on page elements tagged `ledge` (`ledge-N` lets N percent of flakes fall through). Defaults to true. */
     pageInteraction?: boolean;
     /** Deepest a drift gets on an element, in px (0..200). Defaults to `Snow.LEDGE_DEPTH` (26). */
     ledgeDepth?: number;
@@ -32,6 +32,8 @@ class Flake extends Particle {
     public phase2 = 0;
     /** Snow volume it adds to a pile when it lands, px². */
     public area = 20;
+    /** Random 0..1, fixed at birth: a `ledge-N` element lets the flake fall through when `roll * 100` is below N. */
+    public roll = Math.random();
     public view?: PixiParticle;
 }
 
@@ -43,6 +45,8 @@ interface Surface {
     x: number;
     y: number;
     width: number;
+    /** Percent of flakes that fall through it, from a `ledge-N` tag; 0 for a plain ledge and the floor. */
+    through: number;
     g: Graphics;
     /** Bumped when the heights change; the drawing follows it. */
     version: number;
@@ -79,7 +83,8 @@ const MAX_PUFF_PER_TICK = 30;
  * - the force field: flakes are very light, so wind makes them slant and stream, and shock rings blast them;
  *   a strong push (wind of about 0.0005 px/ms² and more, or a shock ring passing) also shaves the
  *   tops of the piles and carries the snow off as spindrift
- * - elements tagged `ledge`: snow settles on their top edge (option `pageInteraction`)
+ * - elements tagged `ledge`: snow settles on their top edge (option `pageInteraction`); on
+ *   `ledge-N`, N percent of the flakes fall through, decided once per flake
  * - the pointer: moving through a pile wipes snow off it; a press (not on a button or link) within
  *   120 px of a pile knocks off a bigger scoop
  * - `crystal:exploded`, `rainEater:exploded`, `lightning:strike` and `meteor:impact` within 200 to 320 px
@@ -358,7 +363,7 @@ export class Snow extends Effect<SnowContext> {
         for (let i = 0; i < list.length; i++) {
             const s = list[i];
             const rel = f.position.x - s.x;
-            if (rel < 0 || rel > s.width) {
+            if (rel < 0 || rel > s.width || f.roll * 100 < s.through) {
                 continue;
             }
             const top = s.y - s.cap.heightAt(rel);
@@ -379,12 +384,12 @@ export class Snow extends Effect<SnowContext> {
             s.seen = false;
         }
         if (this.groundDepth > 0) {
-            this.ensureSurface(GROUND, true, 0, height, width, this.groundDepth);
+            this.ensureSurface(GROUND, true, 0, height, width, this.groundDepth, 0);
         }
         if (this.pageInteraction && this.ledgeDepth > 0) {
             for (const ledge of tick.stage.tagged('ledge')) {
                 if (ledge.width >= 8) {
-                    this.ensureSurface(ledge.name, false, ledge.x, ledge.y, ledge.width, this.ledgeDepth);
+                    this.ensureSurface(ledge.name, false, ledge.x, ledge.y, ledge.width, this.ledgeDepth, ledge.numbers.ledge ?? 0);
                 }
             }
         }
@@ -404,7 +409,7 @@ export class Snow extends Effect<SnowContext> {
         }
     }
 
-    private ensureSurface(key: string, ground: boolean, x: number, y: number, width: number, depth: number): void {
+    private ensureSurface(key: string, ground: boolean, x: number, y: number, width: number, depth: number, through: number): void {
         let s = this.surfaces.get(key);
         if (!s) {
             const g = new Graphics();
@@ -416,6 +421,7 @@ export class Snow extends Effect<SnowContext> {
                 x,
                 y,
                 width,
+                through,
                 g,
                 version: 1,
                 drawn: 0,
@@ -429,6 +435,7 @@ export class Snow extends Effect<SnowContext> {
         s.seen = true;
         s.x = x;
         s.y = y;
+        s.through = through;
         if (Math.abs(width - s.width) > 0.5) {
             s.cap.resize(width);
             s.width = width;

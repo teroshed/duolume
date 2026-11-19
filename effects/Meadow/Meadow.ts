@@ -4,9 +4,23 @@ import { approach, clamp, mixColor } from '../../src/math';
 import type { AnchorRect } from '../../src/Stage';
 import type { EffectContext, Theme, TickContext, TimedContext, Vector3 } from '../../src/types';
 import type { MeadowContext } from '../contracts';
-import { BladeRow, bladeIndices, riseAt, SEGMENTS, shareAtRise, STUBBLE, VERTS_PER_BLADE, writeBlade } from './BladeRow';
+import { BladeRow, bladeIndices, riseAt, SEGMENTS, shareAtRise, STUBBLE, VERTS_PER_BLADE, writeBlade, writeLine } from './BladeRow';
+
+/** How the meadow can be drawn, cheapest first. */
+export enum MeadowLevel {
+    /** Each blade is one straight line. */
+    Lines,
+    /** Curved blades, standing still. */
+    Blades,
+    /** Curved blades that lean with the wind. */
+    Wind,
+    /** Shaded blades, wind and everything. */
+    Full,
+}
 
 export interface MeadowOptions {
+    /** Always draw this look. Default: none, so the engine picks from the scene's detail and the frame rate. */
+    level?: MeadowLevel;
     /** Blades per 100 px of ground, 0..90. Default `DENSITY` (36). */
     density?: number;
     /** Typical blade height on the stage floor, in px, 4..400 (page elements grow about 55% of it). Default `HEIGHT` (46). */
@@ -36,6 +50,8 @@ interface RowView {
     uvs: Float32Array;
     /** Phase of the travelling gust pattern, so rows do not move in lockstep. */
     wavePhase: number;
+    /** Whether the texture coordinates now shade each blade from root to tip. */
+    shaded: boolean;
 }
 
 interface Clipping {
@@ -56,6 +72,8 @@ const MAX_CLIPPINGS = 48;
 const LEDGE_SCALE = 0.55;
 /** Radius of the cut the pointer makes, px: a round-bottomed bite, lowest at the pointer. */
 const CUT_REACH = 30;
+/** Where along the blade an unshaded blade takes its one colour from, root 0 → tip 1. */
+const FLAT_ALONG = 0.7;
 
 /**
  * Grass along the bottom of the stage and on top of every page element tagged "ledge". Apart from
@@ -75,6 +93,10 @@ const CUT_REACH = 30;
  * What it tells the others: how many blades stand and how far the grass leans (its context).
  * No events, no forces. A cut or scorched blade stands as it was cut for 5 to 10 seconds, then
  * grows back at its own speed, so a mown patch comes back blade by blade. No keys.
+ *
+ * Its intensity is how many blades show. It has four looks (`MeadowLevel`): plain lines, still
+ * curved blades, blades in the wind, and shaded blades that feel the whole force field and the
+ * pointer. Each cheaper look also skips the work it does not show.
  */
 export class Meadow extends Effect<MeadowContext> {
     public effectName = 'meadow';
@@ -90,6 +112,9 @@ export class Meadow extends Effect<MeadowContext> {
     private readonly ledges: boolean;
     private readonly regrow: number;
     private readonly regrowDelay: number;
+    private readonly pinned: MeadowLevel | undefined;
+    /** The look chosen this tick. */
+    private level = MeadowLevel.Full;
 
     private readonly rows = new Map<string, RowView>();
     private readonly seen = new Set<string>();
@@ -117,6 +142,7 @@ export class Meadow extends Effect<MeadowContext> {
         this.ledges = options.ledges ?? true;
         this.regrow = Math.max(100, finite(options.regrow, Meadow.REGROW_MS));
         this.regrowDelay = Math.max(0, finite(options.regrowDelay, Meadow.REGROW_DELAY));
+        this.pinned = options.level;
     }
 
     public initialize(): void {
@@ -140,6 +166,7 @@ export class Meadow extends Effect<MeadowContext> {
         this.paletteKey = '';
         this.clippings.length = 0;
         this.shown = 1;
+        this.level = MeadowLevel.Full;
         this.handSpeed = 0;
         this.lastMouseX = NaN;
         this.lastMouseY = NaN;
@@ -149,8 +176,19 @@ export class Meadow extends Effect<MeadowContext> {
     public onTick(tick: TickContext): EffectContext<MeadowContext> {
         const dt = tick.timeDelta;
         const time = tick.time;
+        const level = tick.level(MeadowLevel, this.pinned);
+        // Below Wind nothing moves: on the way down, every blade comes to rest at once.
+        if (level < MeadowLevel.Wind && this.level >= MeadowLevel.Wind) {
+            for (const { row } of this.rows.values()) {
+                row.lean.fill(0);
+                row.velocity.fill(0);
+            }
+        }
+        this.level = level;
+        const moving = level >= MeadowLevel.Wind;
+        const everything = level >= MeadowLevel.Full;
         this.syncRows(tick);
-        this.shown = approach(this.shown, 0.25 + 0.75 * clamp(tick.budget.budget, 0, 1), 0.6, dt);
+        this.shown = approach(this.shown, (0.25 + 0.75 * clamp(tick.budget.budget, 0, 1)) * tick.intensity, 0.6, dt);
 
         // The stage-wide wind, kept apart so it can roll through the grass as waves.
         let wind = 0;
@@ -199,10 +237,12 @@ export class Meadow extends Effect<MeadowContext> {
         for (const e of tick.events('meteor:impact')) {
             this.scorchAround(e.payload.x, e.payload.y, 90, time);
         }
-        for (const e of tick.events('rain:landed')) {
-            const points = e.payload.points;
-            for (let p = 0; p < points.length && p < 16; p++) {
-                this.flick(points[p].x, points[p].y);
+        if (moving) {
+            for (const e of tick.events('rain:landed')) {
+                const points = e.payload.points;
+                for (let p = 0; p < points.length && p < 16; p++) {
+                    this.flick(points[p].x, points[p].y);
+                }
             }
         }
 
@@ -216,29 +256,38 @@ export class Meadow extends Effect<MeadowContext> {
             const row = view.row;
             row.grow(time);
             for (let i = 0; i < row.count; i++) {
-                const share = row.growth[i];
-                const rootX = row.x + row.rx[i];
-                // Where the blade ends now: its tip, or the flat top a cut left on its curve.
-                const tipX = rootX + share * share * BladeRow.bend(row.lean[i] + row.rest[i], row.height[i]);
-                const tipY = row.y - row.shownHeight(i) * 0.85;
-                tick.forces.sample(tipX, tipY, force);
-                // Gusts roll across in the wind's direction: a quick ripple and a slower swell.
-                const ripple = 0.6 + 0.4 * Math.sin(rootX * 0.024 - time * 0.0043 * dir + view.wavePhase);
-                const swell = 0.78 + 0.34 * Math.sin(rootX * 0.007 - time * 0.0007 * dir + view.wavePhase * 1.7);
-                let accel = force.x - wind + wind * ripple * swell;
-                // A calm meadow still breathes.
-                accel += 0.000012 * Math.sin(time * 0.0021 + row.phase[i]) + 0.000016 * Math.sin(rootX * 0.011 - time * 0.0009);
-                if (mouse) {
-                    const dx = tipX - mouse.x;
-                    const dy = mouse.y < tipY ? tipY - mouse.y : mouse.y > row.y ? mouse.y - row.y : 0;
-                    const d = Math.hypot(dx, dy);
-                    if (d < 60) {
-                        const t = 1 - d / 60;
-                        accel += (dx < 0 ? -1 : 1) * handPush * t * t;
+                // Lines and Blades stand still: no wind, no field, no springs to integrate.
+                if (moving) {
+                    const rootX = row.x + row.rx[i];
+                    // Gusts roll across in the wind's direction: a quick ripple and a slower swell.
+                    const ripple = 0.6 + 0.4 * Math.sin(rootX * 0.024 - time * 0.0043 * dir + view.wavePhase);
+                    const swell = 0.78 + 0.34 * Math.sin(rootX * 0.007 - time * 0.0007 * dir + view.wavePhase * 1.7);
+                    let accel = wind * ripple * swell;
+                    // Only Full feels the rest of the field at each tip (shock rings, attractors) and the pointer.
+                    let tipX = 0;
+                    let tipY = 0;
+                    if (everything) {
+                        const share = row.growth[i];
+                        // Where the blade ends now: its tip, or the flat top a cut left on its curve.
+                        tipX = rootX + share * share * BladeRow.bend(row.lean[i] + row.rest[i], row.height[i]);
+                        tipY = row.y - row.shownHeight(i) * 0.85;
+                        tick.forces.sample(tipX, tipY, force);
+                        accel = force.x - wind + accel;
                     }
-                }
-                for (let s = 0; s < steps; s++) {
-                    row.spring(i, accel, h);
+                    // A calm meadow still breathes.
+                    accel += 0.000012 * Math.sin(time * 0.0021 + row.phase[i]) + 0.000016 * Math.sin(rootX * 0.011 - time * 0.0009);
+                    if (everything && mouse) {
+                        const dx = tipX - mouse.x;
+                        const dy = mouse.y < tipY ? tipY - mouse.y : mouse.y > row.y ? mouse.y - row.y : 0;
+                        const d = Math.hypot(dx, dy);
+                        if (d < 60) {
+                            const t = 1 - d / 60;
+                            accel += (dx < 0 ? -1 : 1) * handPush * t * t;
+                        }
+                    }
+                    for (let s = 0; s < steps; s++) {
+                        row.spring(i, accel, h);
+                    }
                 }
                 const visible = clamp((this.shown - row.rank[i]) / 0.1, 0, 1);
                 if (visible > 0.5) {
@@ -262,27 +311,41 @@ export class Meadow extends Effect<MeadowContext> {
         this.updatePalette(timed.theme);
         const lead = timed.alpha * timed.tickDelta;
         const shown = this.shown;
+        const level = this.level;
+        const shaded = level >= MeadowLevel.Full;
         for (const view of this.rows.values()) {
             const { row, positions, uvs, mesh } = view;
             mesh.position.set(row.x, row.y);
+            if (view.shaded !== shaded) {
+                writeShading(uvs, row.count, shaded);
+                view.shaded = shaded;
+            }
             for (let i = 0; i < row.count; i++) {
                 const visible = clamp((shown - row.rank[i]) / 0.1, 0, 1);
                 const h = row.height[i] * visible;
                 const share = row.growth[i];
-                const lean = row.lean[i] + row.velocity[i] * lead + row.rest[i];
                 const offset = i * VERTS_PER_BLADE * 2;
-                // A cut blade keeps its curve and ends where it was cut, in a flat top.
-                writeBlade(positions, offset, row.rx[i], h, row.rootWidth[i], BladeRow.bend(lean, h), share);
+                if (level === MeadowLevel.Lines) {
+                    // A line has no curve to keep: a cut one is simply shorter.
+                    writeLine(positions, offset, row.rx[i], h * riseAt(share), BladeRow.bend(row.rest[i], h) * share * share);
+                } else {
+                    // Still blades keep the lean they were born with; moving ones add the spring's.
+                    const lean = level >= MeadowLevel.Wind ? row.lean[i] + row.velocity[i] * lead + row.rest[i] : row.rest[i];
+                    // A cut blade keeps its curve and ends where it was cut, in a flat top.
+                    writeBlade(positions, offset, row.rx[i], h, row.rootWidth[i], BladeRow.bend(lean, h), share);
+                }
                 // Scorched blades slide toward the ash end of the palette as they burn.
                 const u = paletteU(row.shade[i] * (1 - row.scorch[i]));
                 for (let j = 0; j <= SEGMENTS; j++) {
-                    // Colour runs along the whole blade, so what is left of a cut one keeps its own.
-                    const v = paletteV((j / SEGMENTS) * share);
                     const o = offset + j * 4;
                     uvs[o] = u;
-                    uvs[o + 1] = v;
                     uvs[o + 2] = u;
-                    uvs[o + 3] = v;
+                    if (shaded) {
+                        // Colour runs along the whole blade, so what is left of a cut one keeps its own.
+                        const v = paletteV((j / SEGMENTS) * share);
+                        uvs[o + 1] = v;
+                        uvs[o + 3] = v;
+                    }
                 }
             }
             mesh.geometry.getBuffer('aPosition').update();
@@ -338,14 +401,8 @@ export class Meadow extends Effect<MeadowContext> {
         const vertexFloats = Math.max(1, row.count) * VERTS_PER_BLADE * 2;
         const positions = new Float32Array(vertexFloats);
         const uvs = new Float32Array(vertexFloats);
-        for (let i = 0; i < row.count; i++) {
-            for (let j = 0; j <= SEGMENTS; j++) {
-                const o = (i * VERTS_PER_BLADE + j * 2) * 2;
-                const v = paletteV(j / SEGMENTS);
-                uvs[o + 1] = v;
-                uvs[o + 3] = v;
-            }
-        }
+        const shaded = this.level >= MeadowLevel.Full;
+        writeShading(uvs, row.count, shaded);
         const indices = row.count > 0 ? bladeIndices(row.order) : new Uint32Array([0, 0, 0]);
         const mesh = new MeshSimple({ texture: this.palette ?? Texture.WHITE, vertices: positions, uvs, indices });
         mesh.alpha = 0.86;
@@ -354,7 +411,7 @@ export class Meadow extends Effect<MeadowContext> {
         if (this.clippingView) {
             this.host.pixi.addChild(this.clippingView);
         }
-        return { row, mesh, positions, uvs, wavePhase: Math.random() * Math.PI * 2 };
+        return { row, mesh, positions, uvs, wavePhase: Math.random() * Math.PI * 2, shaded };
     }
 
     /**
@@ -550,6 +607,22 @@ function finite(value: number | undefined, fallback: number): number {
 /** Centre of a palette column for a shade 0..1, as a texture coordinate. */
 function paletteU(shade: number): number {
     return (0.5 + clamp(shade, 0, 1) * (PALETTE_COLS - 1)) / PALETTE_COLS;
+}
+
+/**
+ * The palette rows each blade's vertices sample: root to tip when shaded, or one row for the
+ * whole blade, so it is a single flat colour.
+ */
+function writeShading(uvs: Float32Array, count: number, shaded: boolean): void {
+    const flat = paletteV(FLAT_ALONG);
+    for (let i = 0; i < count; i++) {
+        for (let j = 0; j <= SEGMENTS; j++) {
+            const o = (i * VERTS_PER_BLADE + j * 2) * 2;
+            const v = shaded ? paletteV(j / SEGMENTS) : flat;
+            uvs[o + 1] = v;
+            uvs[o + 3] = v;
+        }
+    }
 }
 
 /** Centre of a palette row for a position along the blade, root 0 → tip 1. */

@@ -17,6 +17,7 @@ export class BlankEffect extends Effect {
         // Create what you draw.
         //   this.host.pixi   your Pixi container (behind the 3D scene)
         //   this.host.three  your Three.js group
+        //   this.host.page   the page itself, sharp: page.frame(anchor) and page.picture(anchor, …), called in onRender
         //   this.host.stage  stage pixels ↔ 3D positions, and the page's anchors
     }
 
@@ -29,6 +30,8 @@ export class BlankEffect extends Effect {
         //   Say something happened:   tickContext.emit('blank:happened', { x, y });
         //   Hear what happened:       for (const event of tickContext.events('rain:eaten')) { … }
         //   Land on the page:         for (const ledge of tickContext.stage.tagged('ledge')) { … }
+        //   How much falls through:   ledge.numbers.ledge   (30 for `ledge-30`, undefined for a plain ledge)
+        //   How much, how rich:       tickContext.intensity (0..1); with looks, const level = tickContext.level(YourLevel, this.pinned);
 
         // Whatever you return here is what other effects get from tickContext.read('blank').
         return this.publish({});

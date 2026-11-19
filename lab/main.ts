@@ -102,6 +102,8 @@ const speed = $<HTMLInputElement>('#speed');
 const speedOut = $<HTMLOutputElement>('#speed-out');
 const drops = $<HTMLInputElement>('#drops');
 const dropsOut = $<HTMLOutputElement>('#drops-out');
+const detail = $<HTMLInputElement>('#detail');
+const detailOut = $<HTMLOutputElement>('#detail-out');
 const gradient = $<HTMLSelectElement>('#gradient');
 const motionButton = $<HTMLButtonElement>('#motion');
 const aboutButton = $<HTMLButtonElement>('#about');
@@ -113,6 +115,7 @@ for (const box of effectBoxes) {
 }
 speed.addEventListener('input', () => actions.setSpeed(Number(speed.value)));
 drops.addEventListener('input', () => actions.setDrops(Number(drops.value)));
+detail.addEventListener('input', () => actions.setDetail(Number(detail.value)));
 gradient.addEventListener('change', () => actions.setGradient(gradient.value as GradientType));
 $<HTMLButtonElement>('#explode').addEventListener('click', () => actions.explodeEater());
 motionButton.addEventListener('click', () => actions.setPaused(!actions.getState().paused));
@@ -137,6 +140,8 @@ const render = (): void => {
     speedOut.textContent = `${state.speed.toFixed(1)}×`;
     drops.value = String(state.drops);
     dropsOut.textContent = String(state.drops);
+    detail.value = String(state.detail);
+    detailOut.textContent = `${Math.round(state.detail * 100)}%`;
     gradient.value = state.gradient;
     motionButton.textContent = state.paused ? 'Resume' : 'Pause';
     motionButton.setAttribute('aria-pressed', String(state.paused));

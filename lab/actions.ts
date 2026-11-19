@@ -25,6 +25,8 @@ export interface LabState {
     speed: number;
     /** Rain droplets at full budget, 0 to 1600. */
     drops: number;
+    /** How rich the scene may look, 0 to 1 (`manager.setDetail`). Only effects with looks, such as the meadow, use it. */
+    detail: number;
     gradient: GradientType;
     paused: boolean;
     /** True when the visitor asked not to see the intro again. */
@@ -49,6 +51,8 @@ export interface LabActions {
     toggleEffect(effect: EffectName): boolean;
     setSpeed(speed: number): number;
     setDrops(drops: number): number;
+    /** Set the scene's detail, clamped to 0..1; returns the applied value. */
+    setDetail(detail: number): number;
     setGradient(gradient: GradientType): void;
     setPaused(paused: boolean): void;
     explodeEater(): void;
@@ -67,7 +71,10 @@ const STORAGE_KEY = 'teroshed.lab.v1';
 const GRADIENTS = Object.values(GradientType) as string[];
 
 /** The saved subset of the state. Pausing is not saved: a lab that opens frozen looks broken. */
-type SavedState = Pick<LabState, 'scene' | 'level' | 'effects' | 'speed' | 'drops' | 'gradient' | 'skipIntro'>;
+type SavedState = Pick<LabState, 'scene' | 'level' | 'effects' | 'speed' | 'drops' | 'detail' | 'gradient' | 'skipIntro'>;
+
+/** Every effect at intensity 1, so a preset that leaves an effect out puts it back to full. */
+const FULL_INTENSITY = Object.fromEntries(EFFECT_NAMES.map((name) => [name, 1])) as Record<EffectName, number>;
 
 export function createLabActions(manager: VisualsManager, effects: LabEffects, reducedMotion: boolean): LabActions {
     const listeners = new Set<(state: Readonly<LabState>) => void>();
@@ -82,6 +89,7 @@ export function createLabActions(manager: VisualsManager, effects: LabEffects, r
         effects: { ...sceneEffects(scene, level), ...saved?.effects },
         speed: saved?.speed ?? 1,
         drops: saved?.drops ?? preset.drops,
+        detail: saved?.detail ?? 1,
         gradient: saved?.gradient ?? GradientType.THEME,
         paused: reducedMotion,
         skipIntro: saved?.skipIntro ?? false,
@@ -103,6 +111,7 @@ export function createLabActions(manager: VisualsManager, effects: LabEffects, r
     const applyLevelToEngine = (): void => {
         const current = INTENSITY_PRESETS[state.level];
         manager.setComfort(current.comfort);
+        manager.setIntensity({ ...FULL_INTENSITY, ...current.intensity });
         effects.fireworks.setShellTarget(current.shells);
     };
 
@@ -112,6 +121,7 @@ export function createLabActions(manager: VisualsManager, effects: LabEffects, r
     manager.setTimeScale(state.speed);
     state.speed = manager.getTimeScale();
     effects.rain.setDropTarget(state.drops);
+    manager.setDetail(state.detail);
     effects.rain.setDropletGradientType(state.gradient);
 
     return {
@@ -178,6 +188,16 @@ export function createLabActions(manager: VisualsManager, effects: LabEffects, r
             effects.rain.setDropTarget(state.drops);
             changed();
             return state.drops;
+        },
+
+        setDetail(detail) {
+            if (!Number.isFinite(detail)) {
+                throw new TypeError('detail must be a number');
+            }
+            manager.setDetail(detail);
+            state.detail = manager.getDetail();
+            changed();
+            return state.detail;
         },
 
         setGradient(gradient) {
@@ -263,6 +283,9 @@ function load(): Partial<SavedState> | undefined {
         if (typeof data.drops === 'number' && Number.isFinite(data.drops)) {
             result.drops = Math.max(0, Math.min(1600, data.drops));
         }
+        if (typeof data.detail === 'number' && Number.isFinite(data.detail)) {
+            result.detail = Math.max(0, Math.min(1, data.detail));
+        }
         if (typeof data.gradient === 'string' && GRADIENTS.includes(data.gradient)) {
             result.gradient = data.gradient as GradientType;
         }
@@ -283,6 +306,7 @@ function save(state: LabState): void {
         effects: state.effects,
         speed: state.speed,
         drops: state.drops,
+        detail: state.detail,
         gradient: state.gradient,
         skipIntro: state.skipIntro,
     };

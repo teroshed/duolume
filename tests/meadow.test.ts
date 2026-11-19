@@ -1,5 +1,17 @@
 import { describe, expect, test } from 'bun:test';
-import { BladeRow, bladeIndices, MAX_LEAN, regrown, riseAt, shareAtRise, STUBBLE, VERTS_PER_BLADE, writeBlade } from '../effects/Meadow/BladeRow';
+import {
+    BladeRow,
+    bladeIndices,
+    LINE_WIDTH,
+    MAX_LEAN,
+    regrown,
+    riseAt,
+    shareAtRise,
+    STUBBLE,
+    VERTS_PER_BLADE,
+    writeBlade,
+    writeLine,
+} from '../effects/Meadow/BladeRow';
 
 function seeded(seed: number): () => number {
     let state = seed >>> 0;
@@ -170,6 +182,25 @@ describe('blade geometry', () => {
         const width = (out: Float32Array): number => Math.hypot(out[n - 2] - out[n - 4], out[n - 1] - out[n - 3]);
         expect(width(cut)).toBeGreaterThan(2);
         expect(width(whole)).toBeLessThanOrEqual(1.01);
+    });
+
+    test('a line blade is straight, even and as tall as a curved one', () => {
+        const out = new Float32Array(VERTS_PER_BLADE * 2);
+        writeLine(out, 0, 50, 40, 0);
+        expect(out[1]).toBeCloseTo(0);
+        expect(out[out.length - 1]).toBeCloseTo(-40);
+        expect(out[2] - out[0]).toBeCloseTo(LINE_WIDTH);
+        expect(out[out.length - 2] - out[out.length - 4]).toBeCloseTo(LINE_WIDTH);
+        writeLine(out, 0, 50, 40, 20);
+        // Every centre point lies on the line from root to tip.
+        const tipX = (out[out.length - 2] + out[out.length - 4]) / 2;
+        const tipY = (out[out.length - 1] + out[out.length - 3]) / 2;
+        expect(tipX).toBeCloseTo(70);
+        for (let j = 0; j < VERTS_PER_BLADE; j += 2) {
+            const cx = (out[j * 2] + out[j * 2 + 2]) / 2 - 50;
+            const cy = (out[j * 2 + 1] + out[j * 2 + 3]) / 2;
+            expect(cx * tipY - cy * (tipX - 50)).toBeCloseTo(0);
+        }
     });
 
     test('indices stay inside the blades they draw', () => {

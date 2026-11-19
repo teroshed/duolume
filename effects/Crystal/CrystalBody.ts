@@ -45,8 +45,10 @@ export class Shard extends Particle {
     /** Rotation about the facet's own axis, in radians. */
     public tumble = 0;
     public tumbleRate = 0;
-    /** Half the shards notice the page: they can be stopped by an element. */
+    /** Half the shards notice a plain `ledge`: they can be stopped by it. */
     public interactive = false;
+    /** Random 0..1, rolled when it flies off: a `ledge-N` element lets it through when `roll * 100` is below N, and stops it otherwise. */
+    public roll = 0;
     /** Chance of being stopped when crossing an element's edge. */
     public edgeChance = 0;
     /** The element this shard is currently flying over without having been stopped. */
@@ -81,6 +83,8 @@ interface Ring {
  * Shards and the page: half the shards of a broken crystal are "interactive". When one
  * crosses the edge of a page element tagged `ledge` it is stopped there with a 20–50% chance;
  * while it is over the element it has a small chance each tick of stopping where it is. A
+ * numbered ledge, `ledge-N`, decides alone: N percent of all shards pass through it and every
+ * other shard is stopped at the edge it crosses. A
  * stopped shard stays on the element (and scrolls with it), sends a `page:hit` event, and
  * after a few seconds flies home. Until then the crystal has a hole where that facet was.
  */
@@ -199,6 +203,7 @@ export class CrystalBody {
             shard.tumble = 0;
             shard.tumbleRate = randomNumber(-0.012, 0.012);
             shard.interactive = Math.random() < 0.5;
+            shard.roll = Math.random();
             shard.edgeChance = randomNumber(CrystalBody.MIN_EDGE_CHANCE, CrystalBody.MAX_EDGE_CHANCE);
             shard.over = undefined;
             shard.state = 'flying';
@@ -256,7 +261,7 @@ export class CrystalBody {
                 shard.depth += shard.depthVelocity * dt;
                 shard.tumble += shard.tumbleRate * dt;
 
-                if (shard.interactive && ledges.length > 0 && this.meetPage(shard, previousX, previousY, ledges, tickContext)) {
+                if (ledges.length > 0 && this.meetPage(shard, previousX, previousY, ledges, tickContext)) {
                     continue;
                 }
                 if (turnHome) {
@@ -379,11 +384,16 @@ export class CrystalBody {
             shard.over = undefined;
             return false;
         }
+        const through = over.numbers.ledge;
+        if (through === undefined && !shard.interactive) {
+            return false;
+        }
 
         if (shard.over !== over.name) {
             // Just crossed the edge: the element is a wall for some of them.
             shard.over = over.name;
-            if (Math.random() < shard.edgeChance) {
+            const stops = through === undefined ? Math.random() < shard.edgeChance : shard.roll * 100 >= through;
+            if (stops) {
                 // Put it back on the boundary it came through.
                 if (previousX <= over.x) {
                     shard.position.x = over.x;
@@ -401,7 +411,7 @@ export class CrystalBody {
             return false;
         }
 
-        if (Math.random() < CrystalBody.INSIDE_CHANCE_PER_MS * tickContext.timeDelta) {
+        if (through === undefined && Math.random() < CrystalBody.INSIDE_CHANCE_PER_MS * tickContext.timeDelta) {
             this.stop(shard, over, false, tickContext);
             return true;
         }

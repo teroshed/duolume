@@ -161,12 +161,12 @@ export class ParticleSet<P extends Particle> {
     }
 
     /**
-     * Start of tick: work out the allowance and ask for exits if over it.
-     * Call before spawning.
+     * Start of tick: work out the allowance (capacity × frame budget × the effect's intensity)
+     * and ask for exits if over it. Call before spawning.
      */
     public govern(tickContext: TickContext): void {
         this.birthsThisTick = 0;
-        this.allowedCount = Math.floor(this.capacity * tickContext.budget.budget);
+        this.allowedCount = Math.floor(this.capacity * tickContext.budget.budget * tickContext.intensity);
         let alive = 0;
         for (let i = 0; i < this.items.length; i++) {
             if (this.items[i].life === 'alive') {

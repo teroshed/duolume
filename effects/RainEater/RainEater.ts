@@ -34,7 +34,8 @@ export interface RainEaterOptions {
  *                       goes into the force field (throwing the rain outward), a
  *                       `rainEater:exploded` event goes out (the click-explosion effect answers
  *                       with sparks), and the crystal breaks into shards that fly, catch on
- *                       page elements, and come home.
+ *                       page elements tagged `ledge` (`ledge-N` lets N percent through), and
+ *                       come home.
  *   strikes, impacts    a `lightning:strike` that ends on the head, or a `meteor:impact` within a
  *                       radius and 24 px of it, is a big meal: it charges the head by a quarter
  *                       (a meteor by a quarter times 0.5 plus its power).

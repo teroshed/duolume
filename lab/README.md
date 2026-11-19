@@ -14,7 +14,7 @@ single effects afterwards without leaving the scene.
 | --- | --- | --- |
 | Storm (default) | what the intensity level says (the table below) | the level slider; Space, E, W, S, the arrows |
 | Night meadow | wind, meadow, fireflies, flock, constellation | blow with the arrows and watch the grass; press in it and drag to cut it at the pointer's height, and it grows back a few seconds later; wait for the fireflies to blink together and the birds to land on the panel |
-| Winter | wind, snow, nebula, crystals, ribbons | let the snow pile up on the panel and shelves, then blow it off; break a crystal to light the cloud |
+| Winter | wind, snow, nebula, crystals, ribbons | let the snow pile up on the panel and the ledge-0 shelf, then blow it off; break a crystal to light the cloud |
 | Rising tide | wind, rain, tide, bubbles, serpent | B blows bubbles from the pointer; more rain raises the sea; the serpent follows the pointer |
 | Celebration | wind, fireworks, confetti, click sparks, ribbons | C fires both confetti cannons; Space bursts the shells |
 | Deep space | wind, black hole, rain, meteors, constellation, click sparks | G moves the black hole to the pointer; M sends a meteor there |
@@ -65,6 +65,7 @@ window.teroshedLab.setEffectEnabled('wind', false);
 window.teroshedLab.toggleEffect('fireworks');
 window.teroshedLab.setSpeed(1.5);              // clamped to 0.2–3, returns the applied value
 window.teroshedLab.setDrops(400);              // clamped to 0–1600
+window.teroshedLab.setDetail(0.5);             // how rich effects with looks may draw, clamped to 0–1
 window.teroshedLab.setGradient('heatmap');     // 'theme' | 'heatmap' | 'rainbow' | 'aurora' | 'spiral'
 window.teroshedLab.setPaused(true);
 window.teroshedLab.explodeEater();
@@ -77,7 +78,7 @@ authentication: it is a public demo page with no data behind it.
 
 Where the browser provides WebMCP (`navigator.modelContext`), the same operations are
 registered as tools in `webmcp.ts`: `lab_get_state`, `lab_set_scene`, `lab_set_intensity`,
-`lab_set_effect`, `lab_set_speed`, `lab_set_drops`, `lab_set_gradient`, `lab_set_paused`,
+`lab_set_effect`, `lab_set_speed`, `lab_set_drops`, `lab_set_detail`, `lab_set_gradient`, `lab_set_paused`,
 `lab_explode_eater`. Each returns the resulting state as JSON.
 
 ### Not covered
@@ -93,12 +94,16 @@ registered as tools in `webmcp.ts`: `lab_get_state`, `lab_set_scene`, `lab_set_i
 
 ## The page as part of the scene
 
-The control panel and the two shelves are tagged `data-fx-tags="ledge"`. Rain lands on them,
-and when a crystal breaks, half its shards can be stopped by them: at an edge with a 20–50%
-chance, or anywhere inside with a small chance per tick. Each stop plays a ripple on the
+The control panel is tagged `data-fx-tags="ledge"`, and the two shelves `ledge-0` and
+`ledge-100`: the number is the percent of falling things that fall through. Rain lands on the
+panel and the `ledge-0` shelf and falls through the `ledge-100` one. When a crystal breaks,
+half its shards can be stopped by the panel (at an edge with a 20–50% chance, or anywhere
+inside with a small chance per tick); every shard stops at the edge of the `ledge-0` shelf
+and none on the `ledge-100` one. Each stop plays a ripple on the
 element (`attachPageRipples`). Stopped shards fly home after about five seconds. The later
 effects use the same tag: snow and confetti settle on them, grass grows on them, birds
-perch on them, bubbles slide along their undersides.
+perch on them, bubbles slide along their undersides. Snow, confetti and bubbles pass through
+the `ledge-100` shelf too; grass and birds do not care about the number.
 
 ## Saved state
 
@@ -121,6 +126,8 @@ inside is a window onto the scene.
 - **Made for inputs.** A card for each of `Liquid`, `Sand`, `Frost`, `Fuse`, `Circuit`,
   `Filings`, `Pulse` and `Petals`, with a switch, a text field, a button and a slider carrying
   its tag. The slider is a real range input laid invisibly over a bar whose inside is the picture.
+  The last card, `FieldFrame`, draws round its controls instead: a sharp frame on the one that
+  has the keyboard focus.
 
 The page writes no state into the tags itself: `attachFieldTags()` does, from the controls. The
 one call it makes is `refresh()`, after it sets `.checked` from script. The cards only tint what

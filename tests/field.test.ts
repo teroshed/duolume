@@ -6,7 +6,7 @@ import type { TickContext } from '../src/types';
 
 // FieldSet only asks the tick for the tagged anchors, the pointer and the time step.
 function anchor(name: string, tags: string, x = 100, y = 50, width = 60, height = 28): AnchorRect {
-    return { name, x, y, width, height, visible: true, tags: tags.split(' ') };
+    return { name, x, y, width, height, visible: true, radius: 0, tags: tags.split(' '), numbers: {} };
 }
 
 function tick(anchors: AnchorRect[], mouse?: { x: number; y: number }, pressed = false): TickContext {

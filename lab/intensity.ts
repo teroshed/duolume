@@ -34,6 +34,8 @@ export interface IntensityPreset {
     drops: number;
     /** Firework shells kept in flight. */
     shells: number;
+    /** How much of each effect, 0..1, for effects that are on (`manager.setIntensity`). Missing is 1. Never 0: the switches turn effects off. */
+    intensity: Partial<Record<EffectName, number>>;
     /** Multipliers on ambient flashes, shock-ring distortion and glow (1 = as authored). */
     comfort: { flash: number; ripple: number; bloom: number };
 }
@@ -49,7 +51,8 @@ const on = (...names: EffectName[]): Record<EffectName, boolean> => {
 /**
  * Five steps from calm to everything. Each level adds effects to the one before it and
  * lets flashes, ripples and glow through a little more. The effect sets are the original
- * eight (the Storm scene); every effect added later is off at every level.
+ * eight (the Storm scene); every effect added later is off at every level. The lower levels
+ * also ask for less snow and grass, in every scene.
  */
 export const INTENSITY_PRESETS: Record<IntensityLevel, IntensityPreset> = {
     minimal: {
@@ -58,6 +61,7 @@ export const INTENSITY_PRESETS: Record<IntensityLevel, IntensityPreset> = {
         effects: on('rain', 'auroraRibbons', 'wind'),
         drops: 120,
         shells: 1,
+        intensity: { snow: 0.4, meadow: 0.5 },
         comfort: { flash: 0, ripple: 0, bloom: 0.5 },
     },
     low: {
@@ -66,6 +70,7 @@ export const INTENSITY_PRESETS: Record<IntensityLevel, IntensityPreset> = {
         effects: on('rain', 'auroraRibbons', 'wind', 'rainEater', 'crystals'),
         drops: 240,
         shells: 1,
+        intensity: { snow: 0.6, meadow: 0.7 },
         comfort: { flash: 0, ripple: 0.4, bloom: 0.7 },
     },
     mid: {
@@ -74,6 +79,7 @@ export const INTENSITY_PRESETS: Record<IntensityLevel, IntensityPreset> = {
         effects: on('rain', 'auroraRibbons', 'wind', 'rainEater', 'crystals', 'clickExplosion', 'fireworks'),
         drops: 380,
         shells: 4,
+        intensity: { snow: 0.8, meadow: 0.85 },
         comfort: { flash: 0.4, ripple: 0.7, bloom: 0.85 },
     },
     high: {
@@ -82,6 +88,7 @@ export const INTENSITY_PRESETS: Record<IntensityLevel, IntensityPreset> = {
         effects: on('rain', 'auroraRibbons', 'wind', 'rainEater', 'crystals', 'clickExplosion', 'fireworks', 'lightningStorm'),
         drops: 500,
         shells: 7,
+        intensity: {},
         comfort: { flash: 0.75, ripple: 1, bloom: 1 },
     },
     max: {
@@ -90,6 +97,7 @@ export const INTENSITY_PRESETS: Record<IntensityLevel, IntensityPreset> = {
         effects: on('rain', 'auroraRibbons', 'wind', 'rainEater', 'crystals', 'clickExplosion', 'fireworks', 'lightningStorm'),
         drops: 650,
         shells: 10,
+        intensity: {},
         comfort: { flash: 1, ripple: 1, bloom: 1 },
     },
 };
@@ -125,12 +133,12 @@ export const SCENE_PRESETS: Record<SceneName, ScenePreset> = {
     },
     winter: {
         label: 'Winter',
-        summary: 'Snow that piles up on the panel and shelves, under ribbons of light and a cloud that glows when a crystal breaks. Blow it sideways with the arrow keys.',
+        summary: 'Snow that piles up on the panel and the ledge-0 shelf, under ribbons of light and a cloud that glows when a crystal breaks. Blow it sideways with the arrow keys.',
         effects: on('wind', 'snow', 'nebula', 'crystals', 'auroraRibbons'),
     },
     sea: {
         label: 'Rising tide',
-        summary: 'Rain raises a sea along the bottom, bubbles rise and slide under the shelves, and a serpent follows the pointer. Press B to blow bubbles.',
+        summary: 'Rain raises a sea along the bottom, bubbles rise and slide under the panel and the ledge-0 shelf, and a serpent follows the pointer. Press B to blow bubbles.',
         effects: on('wind', 'rain', 'tide', 'bubbles', 'serpent'),
     },
     party: {

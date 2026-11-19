@@ -11,19 +11,19 @@ export interface PageStop {
 
 /**
  * Page elements as walls for raindrops: the same rule crystal shards follow in `meetPage`.
- * Crossing into an element rolls the drop's `edgeChance` once; staying inside gives it a
- * small chance per millisecond of stopping where it is.
+ * A plain `ledge` stops only interactive drops: crossing into it rolls the drop's `edgeChance`
+ * once, and staying inside gives it a small chance per millisecond of stopping where it is.
+ * A numbered ledge, `ledge-N`, decides alone: N percent of drops fall through it (those whose
+ * `roll * 100` is below N) and every other drop stops on the edge it crosses.
  */
 export class PageWalls {
+    /** On a plain ledge: the chance per millisecond that a drop inside the element stops where it is. */
     public static readonly INSIDE_CHANCE_PER_MS = 0.0015;
 
-    private readonly stop: PageStop = { rect: { name: '', x: 0, y: 0, width: 0, height: 0, visible: false, tags: [] }, edge: 'top' };
+    private readonly stop: PageStop = { rect: { name: '', x: 0, y: 0, width: 0, height: 0, visible: false, radius: 0, tags: [], numbers: {} }, edge: 'top' };
 
     /** Returns where the droplet stopped, or undefined if it carries on. */
     public meet(droplet: Droplet, elements: readonly AnchorRect[], timeDelta: number): PageStop | undefined {
-        if (!droplet.interactive) {
-            return undefined;
-        }
         const x = droplet.position.x + droplet.size.x / 2;
         const y = droplet.position.y + droplet.size.y;
         let over: AnchorRect | undefined;
@@ -38,13 +38,18 @@ export class PageWalls {
             droplet.over = undefined;
             return undefined;
         }
+        const through = over.numbers.ledge;
+        if (through === undefined && !droplet.interactive) {
+            return undefined;
+        }
 
         const stop = this.stop;
         stop.rect = over;
         if (droplet.over !== over.name) {
             // Just crossed in: the element is a wall for some drops.
             droplet.over = over.name;
-            if (Math.random() < droplet.edgeChance) {
+            const stops = through === undefined ? Math.random() < droplet.edgeChance : droplet.roll * 100 >= through;
+            if (stops) {
                 stop.edge = this.crossedEdge(droplet, over);
                 snapToEdge(droplet, over, stop.edge);
                 return stop;
@@ -52,7 +57,7 @@ export class PageWalls {
             return undefined;
         }
 
-        if (Math.random() < PageWalls.INSIDE_CHANCE_PER_MS * timeDelta) {
+        if (through === undefined && Math.random() < PageWalls.INSIDE_CHANCE_PER_MS * timeDelta) {
             stop.edge = 'inside';
             return stop;
         }

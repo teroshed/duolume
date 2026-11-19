@@ -84,10 +84,13 @@ On the documentation site (`engine-docs`, a separate repository that carries a c
 - Colour comes from the theme (`tick.theme`, `timed.theme`), read every frame.
 - It is a background behind page text: modest alpha, no large bright fills.
 - Ignore presses when `tick.mouseOnInteractive` is true.
+- Something that falls and lands on ledges honours `ledge-N`: give each piece one `roll =
+  Math.random()` at birth and let it through a ledge when `roll * 100 < (rect.numbers.ledge ??
+  yourDefault)`. Things that perch, grow or shelter on ledges ignore the number.
 - Whole-picture flashes go through `host.surfaces.flash.value += x` in `onRender`, so the
   viewer-comfort setting scales them.
 - Shock rings are scarce (four at once). One per big, rare moment; never per particle.
-- Scale populations with `tick.budget.budget`. `ParticleSet` for `Particle` objects (`govern`,
+- Scale populations with `tick.budget.budget` and `tick.intensity`. `ParticleSet` for `Particle` objects (`govern`,
   `canSpawn`, `sweep`); structure-of-arrays with a budget-scaled cap for numerous short-lived things.
 - No allocation per particle per tick. A few hundred `Graphics` primitives per frame are fine;
   beyond that use a `ParticleContainer`, a `Mesh` with a dynamic buffer, or Three.js instancing.
@@ -131,6 +134,56 @@ step (`"dom": [{ "check": ["#liquid-off-input", true] }, { "value": ["#liquid-ba
 { "focus": "#liquid-text" }]`), and with `SOLO_SCALE=2` photographs at two device pixels per
 pixel; crop and enlarge (`convert shot.png -crop 1100x200+0+60 -scale 300% zoom.png`) to judge
 something this small.
+
+### An effect that draws on the page (`this.host.page`)
+
+For what must be sharp (a 1 px border, an ornament on an element), not pixels in the canvas.
+`FieldFrame` is the whole example.
+
+- Call `page.frame(on, frame, shown)` and `page.picture(on, picture, shown)` in `onRender`, every
+  frame. Nothing is created or released by the effect: what was not asked for in a frame goes.
+- `shown`: a number is drawn as given (drive it from `onTick`); `true` / `false` fade on the real
+  clock by themselves, which is the way for page state such as focus, because it works paused.
+- The maths is in `src/dom/place.ts` (no DOM, tested in `tests/page.test.ts`); `src/dom/PageLayer.ts`
+  only writes it onto nodes, and only what changed.
+- The layer must never become a stacking context (no opacity, transform, filter or z-index on
+  it), or a piece's `zIndex` stops meaning a place among the page's elements. It is `absolute`
+  even over a `fixed` canvas, because `position: fixed` makes a stacking context; it is moved
+  onto the canvas every frame instead.
+- `manager.focus(name)` / `unfocus(name)` play the focus look on an anchor from code (a demo, a
+  test, a tour). It adds `focus` to the anchor's tags inside the stage only. Keep it focus only.
+
+### How much and how rich: `tick.intensity` and `tick.level(…)`
+
+**Intensity, every effect.** `tick.intensity` is 0..1: the page's `setIntensity` for this effect
+times the scene's. A `ParticleSet` already uses it (`govern` allows `capacity × budget ×
+intensity`), so a particle effect writes nothing. Anything else scales what it draws by it:
+`const ribbons = Math.round(RIBBONS * tick.intensity)`. Zero never reaches the effect: the
+engine switches it off. `timed.intensity` is the same number in `onRender`.
+
+**Levels, only for an effect with a real cheaper drawing.** Declare a numeric enum (not `const
+enum`: the docs site compiles effects with sucrase, which supports plain enums only), cheapest first, a `/** */`
+line on every member. Take an option for it, ask once per tick, and branch with plain comparisons:
+
+```ts
+/** How the meadow can be drawn, cheapest first. */
+export enum MeadowLevel { /** … */ Lines, /** … */ Blades, /** … */ Wind, /** … */ Full }
+
+// in onTick
+const level = tick.level(MeadowLevel, this.pinned);   // typed MeadowLevel; this.pinned = options.level
+if (level >= MeadowLevel.Wind) { /* move the blades */ }
+```
+
+- Keep the level in a field for `onRender`; never ask from `onRender`.
+- The engine keeps the state (hold, margin, pins, names). The effect stores nothing about it.
+- The richest member must be what the effect drew before it had levels.
+- A cheaper look skips work, not only pixels: the meadow's `Lines` runs no springs and samples no field.
+- A few branches, not copies of the effect. `effects/Meadow/Meadow.ts` is the example.
+- No enum means one look: detail and `setLevel` do not touch it, and it is not in `getLevels()`.
+  That is the standard. Do not add an enum with one member.
+- Export the enum beside the class from `effects/index.ts`: `export { Meadow, MeadowLevel, type MeadowOptions }`.
+- Test the look logic you can without a renderer, and photograph each look: pin it with
+  `manager.setLevel(name, Level.X)` and take a still.
 
 ### Things that cost someone an hour
 

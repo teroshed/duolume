@@ -61,27 +61,6 @@ export function segmentSpacing(t: number): number {
     return 11.5 - 6 * along;
 }
 
-/**
- * The point to steer for in order to circle (`cx`, `cy`) at `radius`: the point on that circle
- * `lead` radians ahead of where (`x`, `y`) is now, going round in `direction` (+1 clockwise on
- * screen, -1 the other way). From far away it leads in; from inside the circle it leads out.
- */
-export function orbitPoint(
-    x: number,
-    y: number,
-    cx: number,
-    cy: number,
-    radius: number,
-    direction: number,
-    lead: number,
-    out: { x: number; y: number },
-): { x: number; y: number } {
-    const bearing = Math.atan2(y - cy, x - cx) + direction * lead;
-    out.x = cx + Math.cos(bearing) * radius;
-    out.y = cy + Math.sin(bearing) * radius;
-    return out;
-}
-
 /** Distance from the point (`px`, `py`) to the line segment a–b. */
 export function distanceToSegment(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
     const abx = bx - ax;

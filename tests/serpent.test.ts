@@ -4,7 +4,6 @@ import {
     bodyWidth,
     distanceToSegment,
     followChain,
-    orbitPoint,
     segmentSpacing,
     turnRate,
 } from '../effects/Serpent/steering';
@@ -87,9 +86,6 @@ describe('serpent steering', () => {
         expect(p[1]).toBeCloseTo(5, 5);
 
         expect(distanceToSegment(3, 4, 0, 0, 0, 0)).toBeCloseTo(5);
-        const out = { x: 0, y: 0 };
-        orbitPoint(50, 50, 50, 50, 100, 1, 0.7, out);
-        expect(Number.isFinite(out.x) && Number.isFinite(out.y)).toBe(true);
         for (const t of [-5, 0, 0.5, 1, 5]) {
             expect(Number.isFinite(bodyWidth(t))).toBe(true);
             expect(Number.isFinite(segmentSpacing(t))).toBe(true);
@@ -122,18 +118,7 @@ describe('serpent steering', () => {
         expect(segmentSpacing(2)).toBe(segmentSpacing(1));
     });
 
-    test('orbitPoint lies on the circle, leads in the given direction; distanceToSegment measures to the nearest part', () => {
-        const out = { x: 0, y: 0 };
-        // From the far right of the circle, going clockwise on screen (+y is down) means moving down.
-        orbitPoint(500, 300, 300, 300, 100, 1, 0.5, out);
-        expect(Math.hypot(out.x - 300, out.y - 300)).toBeCloseTo(100);
-        expect(out.y).toBeGreaterThan(300);
-        orbitPoint(500, 300, 300, 300, 100, -1, 0.5, out);
-        expect(out.y).toBeLessThan(300);
-        // From inside the circle it still lands on the circle.
-        expect(orbitPoint(310, 300, 300, 300, 100, 1, 0.7, out)).toBe(out);
-        expect(Math.hypot(out.x - 300, out.y - 300)).toBeCloseTo(100);
-
+    test('distanceToSegment measures to the nearest part of the segment', () => {
         expect(distanceToSegment(5, 3, 0, 0, 10, 0)).toBeCloseTo(3);
         expect(distanceToSegment(-4, 3, 0, 0, 10, 0)).toBeCloseTo(5);
         expect(distanceToSegment(14, 3, 0, 0, 10, 0)).toBeCloseTo(5);

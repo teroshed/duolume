@@ -17,6 +17,7 @@ uniform float uFxAspect;
 uniform float uBgScroll;
 uniform vec3 uBgFocus; // xy in uv, z = strength
 uniform float uBgFlash; // brief ambient light, e.g. lightning
+uniform float uBgOff; // 1 on a transparent stage: there is no backdrop, fxBackground gives black
 
 float fxHash(vec2 p) {
     p = fract(p * vec2(123.34, 456.21));
@@ -44,6 +45,9 @@ float fxFbm(vec2 p) {
 }
 
 vec3 fxBackground(vec2 uv) {
+    if (uBgOff > 0.5) {
+        return vec3(0.0);
+    }
     vec2 p = vec2(uv.x * uFxAspect, uv.y + uBgScroll);
     float t = uFxTime * 0.02;
     vec3 col = mix(uBgBottom, uBgTop, smoothstep(0.0, 1.0, uv.y));
@@ -85,7 +89,11 @@ void main() {
 }
 `;
 
-/** Backdrop + Pixi (behind) + Three.js scene + Pixi (front), with shock-ring refraction of the whole picture. */
+/**
+ * Backdrop + Pixi (behind) + Three.js scene + Pixi (front), with shock-ring refraction of the whole picture.
+ * Alpha is how much of the pixel is covered: 1 everywhere with a backdrop; on a transparent stage,
+ * only what the layers themselves cover.
+ */
 export const COMBINE_FRAGMENT = /* glsl */ `
 precision highp float;
 varying vec2 vUv;
@@ -123,6 +131,7 @@ void main() {
     vec2 uv = vUv + off;
 
     vec3 col = fxBackground(uv);
+    float cover = 1.0 - uBgOff;
 
     // A little dispersion on the ring: the Pixi layer splits by channel.
     vec4 back = fxPixi(uPixiBack, uv);
@@ -131,17 +140,20 @@ void main() {
         back.b = fxPixi(uPixiBack, uv - off * 0.35).b;
     }
     col = col * (1.0 - back.a) + back.rgb;
+    cover = cover * (1.0 - back.a) + back.a;
 
     vec4 scene = texture2D(uScene, uv);
     col = col * (1.0 - scene.a) + scene.rgb;
+    cover = cover * (1.0 - scene.a) + clamp(scene.a, 0.0, 1.0);
 
     if (uHasFront > 0.5) {
         vec4 front = fxPixi(uPixiFront, uv);
         col = col * (1.0 - front.a) + front.rgb;
+        cover = cover * (1.0 - front.a) + front.a;
     }
 
     col += mix(uGlowA, uGlowB, 0.5) * crest * 0.0035;
-    gl_FragColor = vec4(col, 1.0);
+    gl_FragColor = vec4(col, cover);
 }
 `;
 
@@ -194,7 +206,15 @@ void main() {
 }
 `;
 
-/** Bloom add, soft shoulder, vignette, dither, sRGB encode. */
+/**
+ * Bloom add, soft shoulder, vignette, dither, sRGB encode.
+ *
+ * On a transparent stage (`uTransparent`) the output is premultiplied: the colour is the picture
+ * as it would look over black, and alpha is how much it hides what is behind the canvas. Light
+ * with nothing under it (a glow, an additive spark) brings its own alpha, as much as its
+ * brightest channel, so a halo shows over a bright page instead of vanishing. A pixel nothing
+ * drew on comes out as exactly zero: no vignette, no dither.
+ */
 export const FINAL_FRAGMENT = /* glsl */ `
 precision highp float;
 varying vec2 vUv;
@@ -203,6 +223,7 @@ uniform sampler2D uBloom;
 uniform float uBloomStrength;
 uniform float uVignette;
 uniform float uFxTime;
+uniform float uTransparent;
 
 vec3 toSrgb(vec3 c) {
     vec3 lo = c * 12.92;
@@ -217,7 +238,8 @@ float hash(vec2 p) {
 }
 
 void main() {
-    vec3 c = texture2D(uCombined, vUv).rgb;
+    vec4 combined = texture2D(uCombined, vUv);
+    vec3 c = combined.rgb;
     c += texture2D(uBloom, vUv).rgb * uBloomStrength;
 
     vec2 q = vUv - 0.5;
@@ -228,7 +250,16 @@ void main() {
     c = mix(c, rolled, smoothstep(0.35, 1.2, max(c.r, max(c.g, c.b))));
 
     c = toSrgb(c);
-    c += (hash(gl_FragCoord.xy + fract(uFxTime) * 61.0) - 0.5) / 255.0;
+    float grain = (hash(gl_FragCoord.xy + fract(uFxTime) * 61.0) - 0.5) / 255.0;
+    if (uTransparent > 0.5) {
+        c = min(c, vec3(1.0));
+        float a = clamp(max(combined.a, max(c.r, max(c.g, c.b))), 0.0, 1.0);
+        // Grain only where something is, and never past alpha: premultiplied colour stays within it.
+        c = clamp(c + grain * step(0.004, a), 0.0, a);
+        gl_FragColor = vec4(c, a);
+        return;
+    }
+    c += grain;
     gl_FragColor = vec4(c, 1.0);
 }
 `;

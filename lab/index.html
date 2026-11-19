@@ -84,6 +84,11 @@
           </label>
         </div>
 
+        <label class="row" title="How rich effects with several looks may draw. The grass steps from shaded blades down to plain lines.">
+          <span>Detail <output id="detail-out">100%</output></span>
+          <input id="detail" type="range" min="0" max="1" step="0.05" value="1" />
+        </label>
+
         <label class="inline">
           <span>Rain gradient</span>
           <select id="gradient">
@@ -132,10 +137,10 @@
         </details>
       </section>
 
-      <p class="hint">Click anywhere for a shock ring. Click a crystal to break it: half its shards catch on the panel and shelves. Try a scene for a different set of effects.</p>
+      <p class="hint">Click anywhere for a shock ring. Click a crystal to break it: half its shards catch on the panel, all of them on the ledge-0 shelf, none on the ledge-100 one. Try a scene for a different set of effects.</p>
 
-      <div class="shelf shelf-a" data-fx-anchor="shelf-a" data-fx-tags="ledge">a DOM element</div>
-      <div class="shelf shelf-b" data-fx-anchor="shelf-b" data-fx-tags="ledge">another one</div>
+      <div class="shelf shelf-a" data-fx-anchor="shelf-a" data-fx-tags="ledge-0">a DOM element tagged ledge-0: nothing falls through</div>
+      <div class="shelf shelf-b" data-fx-anchor="shelf-b" data-fx-tags="ledge-100">ledge-100: everything falls through</div>
     </main>
 
     <dialog id="intro" class="intro" aria-labelledby="intro-title" aria-describedby="intro-lead">

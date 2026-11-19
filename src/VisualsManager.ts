@@ -1,12 +1,13 @@
 import { Container } from 'pixi.js';
 import { Group } from 'three';
 import { Compositor, type CompositorOptions } from './Compositor';
+import { PageLayer, type PageClock } from './dom/PageLayer';
 import type { AnyEffect } from './Effect';
 import { PopulationGovernor, type GovernorOptions } from './Governor';
 import { InputState } from './Input';
 import { Simulation, type TickInput } from './Simulation';
 import { Stage } from './Stage';
-import type { EngineEvent, Theme, TimedContext } from './types';
+import type { EngineEvent, LevelInfo, Theme, TimedContext } from './types';
 
 export const DEFAULT_THEME: Theme = {
     bgTop: 0x0b1018,
@@ -42,6 +43,8 @@ interface EffectSlot {
     pixi: Container;
     pixiFront: Container;
     three: Group;
+    /** Made the first time the effect uses `host.page`. */
+    page?: PageLayer;
 }
 
 const MAX_CATCH_UP_TICKS = 4;
@@ -74,6 +77,7 @@ export class VisualsManager {
     private readonly timedContext: TimedContext;
     private readonly resizeObserver: ResizeObserver;
     private readonly tickInput: TickInput;
+    private readonly pageClock: PageClock;
 
     private raf = 0;
     private lastTime = 0;
@@ -132,6 +136,7 @@ export class VisualsManager {
         this.input = new InputState(window, stageInput ? canvasElement : null);
         this.motion = options.motion ?? true;
         this.compositor.setTheme(this.theme);
+        this.pageClock = { frame: 0, time: 0, theme: this.theme };
 
         const anchors = options.anchors === undefined ? document : options.anchors;
         if (anchors) {
@@ -171,6 +176,7 @@ export class VisualsManager {
             stage,
             theme: this.theme,
             budget: this.governor,
+            intensity: 1,
         };
 
         this.resizeObserver = new ResizeObserver(() => {
@@ -196,10 +202,15 @@ export class VisualsManager {
         this.compositor.pixiFront.addChild(slot.pixiFront);
         this.compositor.scene.add(slot.three);
         this.slots.set(effect.effectName, slot);
+        // eslint-disable-next-line @typescript-eslint/no-this-alias
+        const manager = this;
         effect.attach({
             pixi: slot.pixi,
             pixiFront: slot.pixiFront,
             three: slot.three,
+            get page() {
+                return manager.pageOf(slot);
+            },
             stage: this.stage,
             surfaces: this.compositor.surfaces,
         });
@@ -264,6 +275,22 @@ export class VisualsManager {
     }
 
     /**
+     * Play the focus look on the page element named `name` (its `data-fx-anchor`), as if it had
+     * the keyboard focus: its tags show `focus` until `unfocus(name)`. Works while paused. A name
+     * not on the page yet is remembered for when it arrives.
+     */
+    public focus(name: string): void {
+        this.stage.focus(name);
+        this.invalidated = true;
+    }
+
+    /** End the focus look that `focus(name)` started. Real keyboard focus still shows. */
+    public unfocus(name: string): void {
+        this.stage.unfocus(name);
+        this.invalidated = true;
+    }
+
+    /**
      * Hear an engine event from the page: `manager.on('page:hit', (event) => …)`.
      * Called after the tick that emitted it. Returns a function that stops listening.
      */
@@ -285,6 +312,61 @@ export class VisualsManager {
 
     public getComfort(): Readonly<{ flash: number; ripple: number; bloom: number }> {
         return this.compositor.comfort;
+    }
+
+    /**
+     * How much of an effect to show, 0..1 (default 1). `setIntensity('rain', 0.4)` for one effect,
+     * `setIntensity({ rain: 0.4, meadow: 1 })` for several, `setIntensity(0.6)` for the whole scene,
+     * which is multiplied into each effect's own. Zero switches an effect off; raising it switches it
+     * back on. The effect reads the result as `tick.intensity`.
+     */
+    public setIntensity(effectName: string, intensity: number): void;
+    public setIntensity(intensities: Readonly<Record<string, number>>): void;
+    public setIntensity(sceneIntensity: number): void;
+    public setIntensity(target: string | number | Readonly<Record<string, number>>, intensity?: number): void {
+        if (typeof target === 'string') {
+            this.simulation.setIntensity(target, intensity ?? NaN);
+        } else if (typeof target === 'number') {
+            this.simulation.setIntensity(target);
+        } else {
+            this.simulation.setIntensity(target);
+        }
+        this.invalidated = true;
+    }
+
+    /** An effect's own intensity as set (default 1), or with no name the whole scene's. */
+    public getIntensity(effectName?: string): number {
+        return this.simulation.getIntensity(effectName);
+    }
+
+    /**
+     * How rich the whole scene may look, 0..1 (default 1). Each effect that has looks maps it,
+     * times the frame budget, onto its own levels. An effect with one look ignores it.
+     */
+    public setDetail(detail: number): void {
+        this.simulation.setDetail(detail);
+        this.invalidated = true;
+    }
+
+    public getDetail(): number {
+        return this.simulation.getDetail();
+    }
+
+    /**
+     * Fix an effect's look: `setLevel('meadow', MeadowLevel.Lines)`. `undefined` gives it back
+     * to the machine. Wins over the effect's own option. An effect with one look ignores it.
+     */
+    public setLevel(effectName: string, level: number | undefined): void {
+        this.simulation.setLevel(effectName, level);
+        this.invalidated = true;
+    }
+
+    /**
+     * For each effect that has asked for a level: the look it draws now (number and name), all its
+     * look names, cheapest first, and whether the page pinned it. Effects with one look are absent.
+     */
+    public getLevels(): Record<string, LevelInfo> {
+        return this.simulation.getLevels();
     }
 
     /**
@@ -474,6 +556,8 @@ export class VisualsManager {
         timed.mouseDown = this.input.mouseDown;
         timed.keysPressed = this.input.keysPressed;
         timed.speedMultiplier = sim.getTimeScale();
+        this.pageClock.frame++;
+        this.pageClock.time = timed.time;
 
         for (const slot of this.slots.values()) {
             const enabled = sim.isEnabled(slot.effect.effectName);
@@ -481,16 +565,24 @@ export class VisualsManager {
             slot.pixiFront.visible = enabled;
             slot.three.visible = enabled;
             if (!enabled) {
+                slot.page?.hide();
                 continue;
             }
             timed.context = slot.pixi;
             timed.front = slot.pixiFront;
             timed.group = slot.three;
+            timed.intensity = sim.intensityOf(slot.effect.effectName);
             try {
                 slot.effect.onRender(timed);
             } catch (error) {
                 sim.markFailed(slot.effect.effectName);
                 this.reportError(slot.effect.effectName, 'render', error);
+                slot.page?.hide();
+                continue;
+            }
+            // Take away what was not drawn this frame; a piece still fading asks for one more frame.
+            if (slot.page?.end()) {
+                this.invalidated = true;
             }
         }
 
@@ -528,6 +620,27 @@ export class VisualsManager {
         slot.pixi.destroy({ children: true });
         slot.pixiFront.destroy({ children: true });
         slot.three.removeFromParent();
+        slot.page?.remove();
+        slot.page = undefined;
+    }
+
+    /** An effect's page layer, made on first use: right after the canvas, after the layers of effects added before it. */
+    private pageOf(slot: EffectSlot): PageLayer {
+        if (!slot.page) {
+            const page = new PageLayer(this.canvas, this.stage, this.pageClock);
+            let before: Element = this.canvas;
+            for (const other of this.slots.values()) {
+                if (other === slot) {
+                    break;
+                }
+                if (other.page?.element.isConnected) {
+                    before = other.page.element;
+                }
+            }
+            before.after(page.element);
+            slot.page = page;
+        }
+        return slot.page;
     }
 
     private reportError(effectName: string, phase: 'tick' | 'render' | 'cleanup', error: unknown): void {

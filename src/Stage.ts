@@ -1,4 +1,5 @@
 import { PerspectiveCamera, Vector3 as ThreeVector3 } from 'three';
+import { cornerRadius } from './dom/place';
 import type { Vector3 } from './types';
 
 export interface AnchorRect {
@@ -10,8 +11,41 @@ export interface AnchorRect {
     height: number;
     /** Intersects the viewport. */
     visible: boolean;
-    /** Free-form tags from `data-fx-tags`, e.g. "ledge" so rain lands on it. */
+    /** Its corner radius in pixels, from its CSS `border-radius`, kept to half its size plus one. Read again when its size changes. */
+    radius: number;
+    /** Free-form tags from `data-fx-tags`, e.g. "ledge" so rain lands on it. A numbered tag like `ledge-30` is listed twice, as `ledge-30` and as `ledge`. */
     tags: readonly string[];
+    /** The number a tag ends in, by the tag's plain name: `ledge-30` gives `numbers.ledge === 30`. For a ledge it is the percent of falling things that fall through it. */
+    numbers: Readonly<Record<string, number | undefined>>;
+}
+
+/** A tag that ends in a dash and a number, like `ledge-30` or `glow-2.5`. */
+const NUMBERED_TAG = /^(.+)-(\d+(?:\.\d+)?)$/;
+
+/**
+ * Read a `data-fx-tags` value. Tags are separated by spaces. A tag that ends in a number, like
+ * `ledge-30`, is also listed under its plain name (`ledge`), so code that looks for `ledge` finds
+ * it, and its number goes into `numbers` (the last one wins if a name is numbered twice).
+ */
+export function readTags(text: string): { tags: string[]; numbers: Record<string, number | undefined> } {
+    const tags: string[] = [];
+    const numbers: Record<string, number | undefined> = {};
+    for (const tag of text.split(/\s+/)) {
+        if (tag === '') {
+            continue;
+        }
+        if (!tags.includes(tag)) {
+            tags.push(tag);
+        }
+        const numbered = NUMBERED_TAG.exec(tag);
+        if (numbered) {
+            numbers[numbered[1]] = Number(numbered[2]);
+            if (!tags.includes(numbered[1])) {
+                tags.push(numbered[1]);
+            }
+        }
+    }
+    return { tags, numbers };
 }
 
 interface AnchorEntry {
@@ -19,6 +53,11 @@ interface AnchorEntry {
     rect: AnchorRect;
     /** Found by `watchAll` (and dropped again when it leaves the page), not added with `observe`. */
     auto: boolean;
+    /** The tags the page gave it, before `focus()` adds its word. */
+    own: readonly string[];
+    /** The size its radius was read at, so it is read again only when that changes. */
+    sizedWidth: number;
+    sizedHeight: number;
 }
 
 const FOV_DEGREES = 35;
@@ -46,6 +85,8 @@ export class Stage {
     private watched: ParentNode | null = null;
     private mutations: MutationObserver | null = null;
     private rescan = false;
+    /** Anchor names that show `focus` because code asked (`focus(name)`), whether or not they exist yet. */
+    private readonly focused = new Set<string>();
     /** Called when watched page elements change, so a still picture can be redrawn. */
     public onAnchorsChanged?: () => void;
 
@@ -87,20 +128,62 @@ export class Stage {
         return distance / Math.max(1, distance - z);
     }
 
-    /** Track a DOM element under a name. Its rectangle is refreshed once per frame. */
+    /** Track a DOM element under a name. Its rectangle is refreshed once per frame. Tags are read as `readTags` reads them. */
     public observe(name: string, element: Element, tags: readonly string[] = []): void {
-        this.anchors.set(name, {
-            element,
-            rect: { name, x: 0, y: 0, width: 0, height: 0, visible: false, tags },
-            auto: false,
-        });
+        this.anchors.set(name, this.entry(name, element, readTags(tags.join(' ')), false));
         this.anchorList = Array.from(this.anchors.values(), (entry) => entry.rect);
+        this.onAnchorsChanged?.();
     }
 
     public unobserve(name: string): void {
         if (this.anchors.delete(name)) {
             this.anchorList = Array.from(this.anchors.values(), (entry) => entry.rect);
+            this.onAnchorsChanged?.();
         }
+    }
+
+    /**
+     * Play the focus look on the element named `name`: its tags show the word `focus` until
+     * `unfocus(name)`, as if it had the keyboard focus. The page's own `data-fx-tags` is not
+     * touched. A name with no element yet is remembered for when it arrives.
+     */
+    public focus(name: string): void {
+        if (!this.focused.has(name)) {
+            this.focused.add(name);
+            this.retag(name);
+        }
+    }
+
+    /** Stop playing the focus look on `name`. Real keyboard focus, written into its tags by `attachFieldTags()`, still shows. */
+    public unfocus(name: string): void {
+        if (this.focused.delete(name)) {
+            this.retag(name);
+        }
+    }
+
+    private retag(name: string): void {
+        const entry = this.anchors.get(name);
+        if (entry) {
+            entry.rect.tags = this.withFocus(name, entry.own);
+            this.taggedCache.clear();
+        }
+        this.onAnchorsChanged?.();
+    }
+
+    /** The tags an anchor shows: its own, plus `focus` while code asks for it (a new list then, so a change shows in the list itself). */
+    private withFocus(name: string, own: readonly string[]): readonly string[] {
+        return this.focused.has(name) && !own.includes('focus') ? [...own, 'focus'] : own;
+    }
+
+    private entry(name: string, element: Element, read: { tags: string[]; numbers: Record<string, number | undefined> }, auto: boolean): AnchorEntry {
+        return {
+            element,
+            rect: { name, x: 0, y: 0, width: 0, height: 0, visible: false, radius: 0, tags: this.withFocus(name, read.tags), numbers: read.numbers },
+            auto,
+            own: read.tags,
+            sizedWidth: -1,
+            sizedHeight: -1,
+        };
     }
 
     /** Pick up every `[data-fx-anchor]` element under `root`, once. Tags come from `data-fx-tags`. */
@@ -110,8 +193,7 @@ export class Stage {
             if (!name) {
                 continue;
             }
-            const tags = (element.getAttribute('data-fx-tags') ?? '').split(/\s+/).filter(Boolean);
-            this.observe(name, element, tags);
+            this.observe(name, element, [element.getAttribute('data-fx-tags') ?? '']);
         }
     }
 
@@ -144,19 +226,15 @@ export class Stage {
                 continue;
             }
             found.add(name);
-            const tags = (element.getAttribute('data-fx-tags') ?? '').split(/\s+/).filter(Boolean);
+            const read = readTags(element.getAttribute('data-fx-tags') ?? '');
             const existing = this.anchors.get(name);
             if (existing && !existing.auto) {
                 continue;
             }
-            if (existing && existing.element === element && existing.rect.tags.join(' ') === tags.join(' ')) {
+            if (existing && existing.element === element && existing.own.join(' ') === read.tags.join(' ')) {
                 continue;
             }
-            this.anchors.set(name, {
-                element,
-                rect: { name, x: 0, y: 0, width: 0, height: 0, visible: false, tags },
-                auto: true,
-            });
+            this.anchors.set(name, this.entry(name, element, read, true));
         }
         for (const [name, entry] of this.anchors) {
             if (entry.auto && !found.has(name)) {
@@ -176,7 +254,8 @@ export class Stage {
 
     /**
      * The anchors that carry a tag and are on screen right now, e.g. `stage.tagged('ledge')`
-     * for the page elements things can land on. The list is rebuilt once per frame, not per call.
+     * for the page elements things can land on (it finds `ledge-30` too). The list is rebuilt
+     * once per frame, not per call.
      */
     public tagged(tag: string): readonly AnchorRect[] {
         let list = this.taggedCache.get(tag);
@@ -201,6 +280,12 @@ export class Stage {
             rect.y = box.top - originY;
             rect.width = box.width;
             rect.height = box.height;
+            if (box.width !== entry.sizedWidth || box.height !== entry.sizedHeight) {
+                // Reading the style costs more than reading the box, so only when the size changed.
+                entry.sizedWidth = box.width;
+                entry.sizedHeight = box.height;
+                rect.radius = typeof getComputedStyle === 'function' ? cornerRadius(getComputedStyle(entry.element).borderTopLeftRadius, box.width, box.height) : 0;
+            }
             rect.visible =
                 box.width > 0 &&
                 box.height > 0 &&

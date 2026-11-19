@@ -42,8 +42,8 @@ const SHAPES: readonly CrystalShape[] = ['icosahedron', 'octahedron', 'dodecahed
  * A handful of glass crystals of different shapes and sizes, each slowly changing its
  * proportions, each breakable with a click or tap.
  *
- * A broken crystal's shards fly, some catch on page elements (see CrystalBody), and they all
- * come home in the end. What sets a crystal off besides a click:
+ * A broken crystal's shards fly, some catch on page elements tagged `ledge` (`ledge-N` lets N
+ * percent through; see CrystalBody), and they all come home in the end. What sets a crystal off besides a click:
  *   - the rain eater exploding nearby (a chain reaction),
  *   - lightning landing close to it,
  *   - a meteor coming down close to it,
