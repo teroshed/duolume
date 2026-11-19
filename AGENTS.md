@@ -250,7 +250,8 @@ register), on a stage with two page elements tagged `ledge`. Address parameters:
 `emit` delivers events as if an effect had sent them, which is how to test an effect's reaction
 to an event without staging the thing that causes it. `enabled` switches effects on or off
 before the step. Ticks are per step, not cumulative, and edges (`press`, `tap`, `emit`) reach
-only the first tick of their step.
+only the first tick of their step. `hold` in two steps running is one press going on, so moving
+`mouse` between them is a drag.
 
 `scripts/solo-shot.mjs` drives that page in headless Chromium and writes screenshots:
 

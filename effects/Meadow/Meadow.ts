@@ -4,7 +4,7 @@ import { approach, clamp, mixColor } from '../../src/math';
 import type { AnchorRect } from '../../src/Stage';
 import type { EffectContext, Theme, TickContext, TimedContext, Vector3 } from '../../src/types';
 import type { MeadowContext } from '../contracts';
-import { BladeRow, bladeIndices, SEGMENTS, VERTS_PER_BLADE, writeBlade, writeLine } from './BladeRow';
+import { BladeRow, bladeIndices, riseAt, SEGMENTS, shareAtRise, STUBBLE, VERTS_PER_BLADE, writeBlade, writeLine } from './BladeRow';
 
 /** How the meadow can be drawn, cheapest first. */
 export enum MeadowLevel {
@@ -29,8 +29,18 @@ export interface MeadowOptions {
     ground?: boolean;
     /** Grow along the top edge of page elements tagged "ledge". Default true. */
     ledges?: boolean;
-    /** Milliseconds for a cut or scorched blade to grow back, at least 100. Default `REGROW_MS` (9000). */
+    /**
+     * Milliseconds the slowest blade takes to grow back from stubble once it starts, at least 100.
+     * Each cut blade grows at its own speed, the fastest in about a third of this. Default
+     * `REGROW_MS` (9000).
+     */
     regrow?: number;
+    /**
+     * Milliseconds a cut or scorched blade stands as it was cut before it starts to grow back, 0
+     * or more. Each blade waits its own time, between this and twice this. Default `REGROW_DELAY`
+     * (5000), so 5 to 10 seconds.
+     */
+    regrowDelay?: number;
 }
 
 interface RowView {
@@ -60,6 +70,8 @@ const PALETTE_ROWS = 16;
 const MAX_CLIPPINGS = 48;
 /** Ledge blades are this share of the floor height. */
 const LEDGE_SCALE = 0.55;
+/** Radius of the cut the pointer makes, px: a round-bottomed bite, lowest at the pointer. */
+const CUT_REACH = 30;
 /** Where along the blade an unshaded blade takes its one colour from, root 0 → tip 1. */
 const FLAT_ALONG = 0.7;
 
@@ -72,12 +84,15 @@ const FLAT_ALONG = 0.7;
  * What it listens to:
  *   - the force field, sampled at every blade's tip: wind, shock rings, attract/repel/vortex.
  *   - the pointer: blades part around it, more when it moves fast. A press (not on a button or
- *     link) mows the grass within 55 px of it.
+ *     link) cuts the blades it touches at the height of the pointer, and goes on cutting while
+ *     the button is held and the pointer moves, like a scythe. What is below the pointer stays;
+ *     a blade that ends below it is not touched.
  *   - `lightning:strike` and `meteor:impact` events: blades within 90 px are scorched to stubble.
  *   - `rain:landed` events: a droplet flicks the blade it lands on.
  *   - elements tagged "ledge": grass grows on their top edges and follows them.
  * What it tells the others: how many blades stand and how far the grass leans (its context).
- * No events, no forces. Cut and scorched blades grow back. No keys.
+ * No events, no forces. A cut or scorched blade stands as it was cut for 5 to 10 seconds, then
+ * grows back at its own speed, so a mown patch comes back blade by blade. No keys.
  *
  * Its intensity is how many blades show. It has four looks (`MeadowLevel`): plain lines, still
  * curved blades, blades in the wind, and shaded blades that feel the whole force field and the
@@ -89,12 +104,14 @@ export class Meadow extends Effect<MeadowContext> {
     public static readonly DENSITY = 36;
     public static readonly HEIGHT = 46;
     public static readonly REGROW_MS = 9000;
+    public static readonly REGROW_DELAY = 5000;
 
     private readonly density: number;
     private readonly bladeHeight: number;
     private readonly ground: boolean;
     private readonly ledges: boolean;
     private readonly regrow: number;
+    private readonly regrowDelay: number;
     private readonly pinned: MeadowLevel | undefined;
     /** The look chosen this tick. */
     private level = MeadowLevel.Full;
@@ -114,6 +131,8 @@ export class Meadow extends Effect<MeadowContext> {
     private lastMouseX = NaN;
     private handSpeed = 0;
     private lastMouseY = NaN;
+    /** A press that began on the stage is still held: the pointer cuts where it goes. */
+    private mowing = false;
 
     constructor(options: MeadowOptions = {}) {
         super();
@@ -122,6 +141,7 @@ export class Meadow extends Effect<MeadowContext> {
         this.ground = options.ground ?? true;
         this.ledges = options.ledges ?? true;
         this.regrow = Math.max(100, finite(options.regrow, Meadow.REGROW_MS));
+        this.regrowDelay = Math.max(0, finite(options.regrowDelay, Meadow.REGROW_DELAY));
         this.pinned = options.level;
     }
 
@@ -150,6 +170,7 @@ export class Meadow extends Effect<MeadowContext> {
         this.handSpeed = 0;
         this.lastMouseX = NaN;
         this.lastMouseY = NaN;
+        this.mowing = false;
     }
 
     public onTick(tick: TickContext): EffectContext<MeadowContext> {
@@ -181,9 +202,11 @@ export class Meadow extends Effect<MeadowContext> {
 
         // Pointer speed from its movement since the last tick.
         const mouse = tick.mousePosition;
+        const fromX = this.lastMouseX;
+        const fromY = this.lastMouseY;
         let mouseSpeed = 0;
-        if (mouse && Number.isFinite(this.lastMouseX) && dt > 0) {
-            mouseSpeed = Math.hypot(mouse.x - this.lastMouseX, mouse.y - this.lastMouseY) / dt;
+        if (mouse && Number.isFinite(fromX) && dt > 0) {
+            mouseSpeed = Math.hypot(mouse.x - fromX, mouse.y - fromY) / dt;
         }
         this.lastMouseX = mouse ? mouse.x : NaN;
         this.lastMouseY = mouse ? mouse.y : NaN;
@@ -191,14 +214,28 @@ export class Meadow extends Effect<MeadowContext> {
         this.handSpeed = Math.max(mouseSpeed, approach(this.handSpeed, 0, 4, dt));
         const handPush = 0.0005 + 0.004 * Math.min(1, this.handSpeed / 0.8);
 
-        if (tick.mouseJustPressed && !tick.mouseOnInteractive && mouse) {
-            this.cutAround(mouse.x, mouse.y, 55, time, false);
+        const pressed = tick.mouseJustPressed && !tick.mouseOnInteractive;
+        if (pressed) {
+            this.mowing = true;
+        }
+        if (this.mowing && mouse) {
+            // Cut along the pointer's path since the last tick, so a fast sweep leaves no gaps.
+            const startX = pressed || !Number.isFinite(fromX) ? mouse.x : fromX;
+            const startY = pressed || !Number.isFinite(fromX) ? mouse.y : fromY;
+            const cuts = Math.max(1, Math.min(40, Math.ceil(Math.hypot(mouse.x - startX, mouse.y - startY) / 6)));
+            for (let c = 1; c <= cuts; c++) {
+                const t = c / cuts;
+                this.mow(startX + (mouse.x - startX) * t, startY + (mouse.y - startY) * t, time);
+            }
+        }
+        if (!tick.mouseDown) {
+            this.mowing = false;
         }
         for (const e of tick.events('lightning:strike')) {
-            this.cutAround(e.payload.x, e.payload.y, 90, time, true);
+            this.scorchAround(e.payload.x, e.payload.y, 90, time);
         }
         for (const e of tick.events('meteor:impact')) {
-            this.cutAround(e.payload.x, e.payload.y, 90, time, true);
+            this.scorchAround(e.payload.x, e.payload.y, 90, time);
         }
         if (moving) {
             for (const e of tick.events('rain:landed')) {
@@ -217,7 +254,7 @@ export class Meadow extends Effect<MeadowContext> {
         let swayCount = 0;
         for (const view of this.rows.values()) {
             const row = view.row;
-            row.grow(time, this.regrow);
+            row.grow(time);
             for (let i = 0; i < row.count; i++) {
                 // Lines and Blades stand still: no wind, no field, no springs to integrate.
                 if (moving) {
@@ -230,9 +267,10 @@ export class Meadow extends Effect<MeadowContext> {
                     let tipX = 0;
                     let tipY = 0;
                     if (everything) {
-                        const shownH = row.shownHeight(i);
-                        tipX = rootX + BladeRow.bend(row.lean[i] + row.rest[i], shownH);
-                        tipY = row.y - shownH * 0.85;
+                        const share = row.growth[i];
+                        // Where the blade ends now: its tip, or the flat top a cut left on its curve.
+                        tipX = rootX + share * share * BladeRow.bend(row.lean[i] + row.rest[i], row.height[i]);
+                        tipY = row.y - row.shownHeight(i) * 0.85;
                         tick.forces.sample(tipX, tipY, force);
                         accel = force.x - wind + accel;
                     }
@@ -284,19 +322,30 @@ export class Meadow extends Effect<MeadowContext> {
             }
             for (let i = 0; i < row.count; i++) {
                 const visible = clamp((shown - row.rank[i]) / 0.1, 0, 1);
-                const h = row.shownHeight(i) * visible;
+                const h = row.height[i] * visible;
+                const share = row.growth[i];
                 const offset = i * VERTS_PER_BLADE * 2;
                 if (level === MeadowLevel.Lines) {
-                    writeLine(positions, offset, row.rx[i], h, BladeRow.bend(row.rest[i], h));
+                    // A line has no curve to keep: a cut one is simply shorter.
+                    writeLine(positions, offset, row.rx[i], h * riseAt(share), BladeRow.bend(row.rest[i], h) * share * share);
                 } else {
                     // Still blades keep the lean they were born with; moving ones add the spring's.
                     const lean = level >= MeadowLevel.Wind ? row.lean[i] + row.velocity[i] * lead + row.rest[i] : row.rest[i];
-                    writeBlade(positions, offset, row.rx[i], h, row.rootWidth[i], BladeRow.bend(lean, h));
+                    // A cut blade keeps its curve and ends where it was cut, in a flat top.
+                    writeBlade(positions, offset, row.rx[i], h, row.rootWidth[i], BladeRow.bend(lean, h), share);
                 }
                 // Scorched blades slide toward the ash end of the palette as they burn.
                 const u = paletteU(row.shade[i] * (1 - row.scorch[i]));
-                for (let k = 0; k < VERTS_PER_BLADE; k++) {
-                    uvs[offset + k * 2] = u;
+                for (let j = 0; j <= SEGMENTS; j++) {
+                    const o = offset + j * 4;
+                    uvs[o] = u;
+                    uvs[o + 2] = u;
+                    if (shaded) {
+                        // Colour runs along the whole blade, so what is left of a cut one keeps its own.
+                        const v = paletteV((j / SEGMENTS) * share);
+                        uvs[o + 1] = v;
+                        uvs[o + 3] = v;
+                    }
                 }
             }
             mesh.geometry.getBuffer('aPosition').update();
@@ -365,8 +414,56 @@ export class Meadow extends Effect<MeadowContext> {
         return { row, mesh, positions, uvs, wavePhase: Math.random() * Math.PI * 2, shaded };
     }
 
-    /** Cut (and optionally scorch) every blade within `radius` of a point. */
-    private cutAround(x: number, y: number, radius: number, time: number, scorch: boolean): void {
+    /**
+     * Cut the blades the pointer touches, at the pointer: a round-bottomed bite `CUT_REACH` in
+     * radius whose lowest point is the pointer, so a blade right under it is cut at its height
+     * and its neighbours a little higher. A blade that ends below the bite is left alone.
+     */
+    private mow(x: number, y: number, time: number): void {
+        const reach = CUT_REACH;
+        // A leaning blade is cut where it is at that height, which can be far from its root.
+        const span = reach + this.bladeHeight;
+        for (const { row } of this.rows.values()) {
+            // Only a pointer in this row's grass, or just under its roots, cuts it.
+            if (y > row.y + 10 || y < row.y - this.bladeHeight * 1.5) {
+                continue;
+            }
+            const end = row.lowerBound(x - row.x + span);
+            for (let i = row.lowerBound(x - row.x - span); i < end; i++) {
+                const visible = clamp((this.shown - row.rank[i]) / 0.1, 0, 1);
+                if (visible <= 0) {
+                    continue;
+                }
+                const standing = row.growthAt(i, time);
+                const h = row.height[i] * visible;
+                const bend = BladeRow.bend(row.lean[i] + row.rest[i], h);
+                // How high the whole blade reaches as it leans now.
+                const top = Math.sqrt(Math.max(h * h - bend * bend, 0.25 * h * h));
+                const rootX = row.x + row.rx[i];
+                // Start from where the blade is at the pointer's height, then settle on the bite's edge.
+                let share = Math.min(standing, Math.max(STUBBLE, shareAtRise((row.y - y) / top)));
+                let touched = false;
+                for (let pass = 0; pass < 2; pass++) {
+                    const dx = rootX + share * share * bend - x;
+                    touched = Math.abs(dx) < reach;
+                    if (!touched) {
+                        break;
+                    }
+                    const cutHeight = row.y - y + reach - Math.sqrt(reach * reach - dx * dx);
+                    share = Math.min(standing, Math.max(STUBBLE, shareAtRise(cutHeight / top)));
+                }
+                if (!touched || !(share < standing - 0.004)) {
+                    continue;
+                }
+                if (row.cut(i, share, time, this.wait(), this.pace()) && standing - share > 0.1 && Math.random() < 0.5) {
+                    this.spawnClipping(rootX + share * share * bend, row.y - top * riseAt(share), x);
+                }
+            }
+        }
+    }
+
+    /** Burn every blade within `radius` of a point down to stubble. */
+    private scorchAround(x: number, y: number, radius: number, time: number): void {
         for (const { row } of this.rows.values()) {
             if (y > row.y + radius || y < row.y - this.bladeHeight * 1.5 - radius) {
                 continue;
@@ -379,15 +476,19 @@ export class Meadow extends Effect<MeadowContext> {
                 if (dx * dx + dy * dy > radius * radius) {
                     continue;
                 }
-                if (!scorch && row.growth[i] > 0.5 && Math.random() < 0.35) {
-                    this.spawnClipping(row, i, x);
-                }
-                row.cutAt[i] = time;
-                if (scorch) {
-                    row.scorchAt[i] = time;
-                }
+                row.cut(i, STUBBLE, time, this.wait(), this.pace(), true);
             }
         }
+    }
+
+    /** How long one cut blade stands before it starts to grow back, ms: `regrowDelay` to twice that. */
+    private wait(): number {
+        return this.regrowDelay * (1 + Math.random());
+    }
+
+    /** One cut blade's speed, in shares of its length per ms: stubble to whole in a third of `regrow` to all of it. */
+    private pace(): number {
+        return (1 - STUBBLE) / (this.regrow * (1 / 3 + (2 / 3) * Math.random()));
     }
 
     /** A raindrop landing on a blade gives it a small knock. */
@@ -403,16 +504,15 @@ export class Meadow extends Effect<MeadowContext> {
         }
     }
 
-    private spawnClipping(row: BladeRow, i: number, fromX: number): void {
+    /** The cut-off top of a blade flies off from where it was cut, away from the pointer. */
+    private spawnClipping(x: number, y: number, fromX: number): void {
         if (this.clippings.length >= MAX_CLIPPINGS) {
             return;
         }
-        const x = row.x + row.rx[i];
-        const h = row.shownHeight(i);
         const away = x < fromX ? -1 : 1;
         this.clippings.push({
-            x: x + BladeRow.bend(row.lean[i] + row.rest[i], h) * 0.5,
-            y: row.y - h * 0.6,
+            x,
+            y,
             vx: away * (0.04 + Math.random() * 0.12),
             vy: -0.18 - Math.random() * 0.2,
             spin: (Math.random() - 0.5) * 0.02,
