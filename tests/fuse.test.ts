@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { Border, makeBorderPoint } from '../effects/Fuse/border';
+import { Border, makeBorderPoint } from '../effects/Field/border';
 
 /** Signed distance from (x, y) to the rounded rectangle [l, l+w] x [t, t+h] with corner radius r. */
 function sdf(x: number, y: number, l: number, t: number, w: number, h: number, r: number): number {

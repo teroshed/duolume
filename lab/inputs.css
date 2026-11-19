@@ -109,6 +109,12 @@ body {
   gap: 16px;
 }
 
+/* Effects that leave the control need the page round it: more air between the samples. */
+.card.roomy .samples {
+  gap: 44px 40px;
+  padding: 30px 26px 34px;
+}
+
 /* ---------- switches ---------- */
 
 .switches {

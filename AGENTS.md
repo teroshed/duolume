@@ -115,6 +115,16 @@ It stands on two small building blocks in `effects/Field/`, used the way `Partic
   knob leaves free, and the effect's own `data` for it.
 - `FieldLayer`: in `onRender`, `layer.draw(field)` gives a `Graphics` cleared, clipped to the
   element's rounded rectangle, with its origin at the element's corner; `layer.sweep()` at the end.
+- `Border` (`effects/Field/border.ts`): the closed path round an element, a few pixels in or,
+  with a negative inset, out. For an effect that follows the edge or leaves from it.
+
+An input effect may draw outside its element instead (`Orbit`, `Ivy`, `Arc`, `Echo`, `Glyphs`):
+one plain `Graphics` in `host.pixi`, in stage pixels, no `FieldLayer`. It is behind the page, so
+it shows only where the page round the control is see-through. `effects/Echo/Echo.ts` is the
+shortest. Text reaches an effect as the event `field:text` (`attachFieldText(manager)` on the
+page sends it; `FieldTextEvent` in `src/types.ts`), with every letter's position;
+`effects/Glyphs/Glyphs.ts` reads it. The solo page has it attached, and `{ "type": ["#glyphs-text",
+"hello"] }` in a step's `dom` types into a sample field.
 
 `effects/Miniatures/Miniatures.ts` is the shortest complete one. What is different from a scene effect:
 

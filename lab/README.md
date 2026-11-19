@@ -123,6 +123,9 @@ inside is a window onto the scene.
   ribbons are on at the start. The last switch, Surprise, turns on one effect chosen at random
   from those that are off, shows that effect's miniature and names it; switched off, it turns
   that effect off again.
+- **Leaving the control.** A card for each of `Orbit`, `Ivy`, `Arc`, `Echo` and `Glyphs`, the
+  effects that draw round a control rather than in it, with more room round each sample. Type in
+  the Glyphs field: `attachFieldText(manager)` is on the page.
 - **Made for inputs.** A card for each of `Liquid`, `Sand`, `Frost`, `Fuse`, `Circuit`,
   `Filings`, `Pulse` and `Petals`, with a switch, a text field, a button and a slider carrying
   its tag. The slider is a real range input laid invisibly over a bar whose inside is the picture.

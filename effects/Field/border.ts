@@ -17,7 +17,9 @@ export function makeBorderPoint(): BorderPoint {
 const HALF_PI = Math.PI / 2;
 
 /**
- * The closed path of a fuse: an element's rounded rectangle, drawn inward by `inset` pixels.
+ * Not an effect: a building block for effects that follow an element's edge. The closed path
+ * round an element: its rounded rectangle, drawn inward by `inset` pixels, or outward by a
+ * negative one.
  * Pure geometry (no Pixi): a length, and the point, outward normal and direction at any
  * distance along it.
  *
