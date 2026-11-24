@@ -541,6 +541,7 @@ export class VisualsManager {
         t.mousePosition = input.mousePosition;
         t.mouseDown = input.mouseDown;
         t.mouseOnInteractive = input.mouseOnInteractive;
+        t.pointer = input.pointer;
         t.keysPressed = input.keysPressed;
         t.scrollY = input.scrollY;
         if (withEdges) {

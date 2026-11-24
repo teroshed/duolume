@@ -193,7 +193,8 @@ export class Singularity extends Effect<SingularityContext> {
 
     public onTick(tick: TickContext): EffectContext<SingularityContext> {
         const dt = tick.timeDelta;
-        const mouse = tick.mousePosition;
+        // Under touch there is a pointer only while a finger is down: follow the last place touched.
+        const mouse = tick.mousePosition ?? (tick.pointer.kind === 'touch' ? tick.pointer.last : undefined);
         const width = tick.stage.width;
         const height = tick.stage.height;
 

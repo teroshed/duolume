@@ -11,6 +11,7 @@ import type {
     LevelInfo,
     LevelOf,
     PayloadOf,
+    PointerInfo,
     Theme,
     TickContext,
     Vector3,
@@ -29,6 +30,8 @@ export interface TickInput {
     mouseJustReleased: boolean;
     wheelDelta: number;
     scrollY: number;
+    /** How the visitor is pointing. Left out, it is a mouse. */
+    pointer?: PointerInfo;
 }
 
 const NO_EVENTS: readonly EngineEvent[] = Object.freeze([]);
@@ -103,6 +106,7 @@ export class Simulation {
             speedMultiplier: 1,
             time: 0,
             mouseOnInteractive: false,
+            pointer: { kind: 'mouse', coarse: false, last: undefined },
             scrollY: 0,
             forces: this.forces,
             stage,
@@ -324,6 +328,14 @@ export class Simulation {
         ctx.mousePosition = input.mousePosition;
         ctx.mouseDown = input.mouseDown;
         ctx.mouseOnInteractive = input.mouseOnInteractive;
+        if (input.pointer) {
+            ctx.pointer.kind = input.pointer.kind;
+            ctx.pointer.coarse = input.pointer.coarse;
+            ctx.pointer.last = input.pointer.last;
+        } else if (input.mousePosition) {
+            // A caller that scripts the pointer without saying what it is: a mouse, last seen here.
+            ctx.pointer.last = input.mousePosition;
+        }
         ctx.keysPressed = input.keysPressed;
         ctx.justPressedKeys = input.justPressedKeys;
         ctx.justReleasedKeys = input.justReleasedKeys;

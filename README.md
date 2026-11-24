@@ -317,6 +317,28 @@ The pointer then counts only while it is over the canvas (`mousePosition` is `un
 elsewhere), keys only while the canvas has focus (it is given `tabindex="0"` if it has none),
 and Space and the arrow keys stop scrolling the page while it has focus.
 
+### Mouse, touch or pen
+
+`tick.pointer` says how the visitor is pointing, so an effect can behave differently under a
+finger than under a mouse:
+
+| Field | Holds |
+| --- | --- |
+| `kind` | `'mouse'`, `'touch'` or `'pen'`: what they last pointed with. It changes as they do; before any input it is a guess from the device |
+| `coarse` | true where the device's main pointer is a finger (a phone, a tablet); it does not change with `kind` |
+| `last` | where the pointer last was on the stage, kept after it has gone |
+
+A finger is a pointer only while it is down. After it lifts, `mousePosition` is `undefined`
+again (the tick that carries the tap's press and release still has it), so anything that follows
+a hovering pointer simply has nothing to follow on a phone, with no code in the effect: grass
+does not stay parted where someone tapped, an input does not stay "hovered". An effect that
+should go where the visitor last touched reads `last`, as `Serpent` and `Singularity` do:
+
+```ts
+const target = tick.mousePosition ?? (tick.pointer.kind === 'touch' ? tick.pointer.last : undefined);
+const reach = tick.pointer.kind === 'touch' ? 45 : 30; // a finger hides what it presses: give it room
+```
+
 ## Time
 
 - Ticks are fixed-rate, 60 per second. Each advances the simulation by `1000 / 60` ms times

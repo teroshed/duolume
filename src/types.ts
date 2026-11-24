@@ -156,11 +156,38 @@ export interface BudgetState {
     readonly emergency: boolean;
 }
 
+/** What a visitor points with. */
+export type PointerKind = 'mouse' | 'touch' | 'pen';
+
+/**
+ * How the visitor is pointing: `tick.pointer`. For an effect that should not behave the same
+ * under a finger as under a mouse: something that follows a hovering pointer has nothing to
+ * follow on a phone, and something small to press wants to be larger there.
+ */
+export interface PointerInfo {
+    /**
+     * What the visitor last pointed with. It changes as they do: a laptop with a touch screen
+     * says 'touch' after a tap and 'mouse' again when the mouse moves. Before any input it is a
+     * guess from the device: 'touch' where the main pointer is a finger, else 'mouse'.
+     */
+    kind: PointerKind;
+    /** True where the device's main pointer is a finger (a phone, a tablet). Known before any input, and it does not change with `kind`. */
+    coarse: boolean;
+    /**
+     * Where the pointer last was on the stage, in stage pixels, kept after it has gone: a
+     * finger that lifted, a mouse that left the window. Undefined until there has been one.
+     * `mousePosition` is the pointer that is there now; this is the last place anyone pointed.
+     */
+    last?: Vector3;
+}
+
 /**
  * Passed to every `onTick`. The original fields keep their names and units:
  * `timeDelta` is milliseconds, positions are stage pixels with the origin top-left.
- * Every field is always present except `mousePosition`, which is undefined until the pointer
- * has moved (and, with `input: 'stage'`, while it is off the canvas).
+ * Every field is always present except `mousePosition`, which is undefined while there is no
+ * pointer on the stage: before it has moved, with `input: 'stage'` while it is off the canvas,
+ * and after a finger has lifted (a touch is a pointer only while it is down; the tick that
+ * carries its press and its release still has the position).
  */
 export interface TickContext {
     timeDelta: number;
@@ -186,6 +213,8 @@ export interface TickContext {
     time: number;
     /** True when the press landed on a link, button or form control. */
     mouseOnInteractive: boolean;
+    /** How the visitor is pointing: mouse, touch or pen by the latest input, and where they last pointed. */
+    pointer: PointerInfo;
     /** Page scroll offset in pixels. */
     scrollY: number;
     /** Shared force field: any effect adds forces, any effect samples them, whichever renderer it draws with. */

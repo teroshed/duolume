@@ -160,6 +160,8 @@ label.textContent = requested.join(' + ');
 export interface SoloInput {
     /** Pointer position in stage pixels. Stays until changed. */
     mouse?: { x: number; y: number } | null;
+    /** What the pointer is from now on: 'mouse' (the start), 'touch' or 'pen'. Stays until changed. */
+    pointer?: 'mouse' | 'touch' | 'pen';
     /** A press (and release) at the pointer position on the first tick of this step. */
     press?: boolean;
     /**
@@ -179,6 +181,8 @@ export interface SoloInput {
 }
 
 let pointer: { x: number; y: number } | undefined;
+let pointerKind: 'mouse' | 'touch' | 'pen' = 'mouse';
+let pointerLast: { x: number; y: number } | undefined;
 /** The button was held through the step before this one. */
 let held = false;
 
@@ -189,6 +193,12 @@ let held = false;
 function step(ticks: number, input: SoloInput = {}): void {
     if (input.mouse !== undefined) {
         pointer = input.mouse ?? undefined;
+    }
+    if (input.pointer) {
+        pointerKind = input.pointer;
+    }
+    if (pointer) {
+        pointerLast = { x: pointer.x, y: pointer.y };
     }
     for (const [name, on] of Object.entries(input.enabled ?? {})) {
         manager.setEffectEnabled(name, on);
@@ -205,6 +215,7 @@ function step(ticks: number, input: SoloInput = {}): void {
             mousePosition: pointer ? { x: pointer.x, y: pointer.y } : undefined,
             mouseDown: input.hold === true || (first && input.press === true),
             mouseOnInteractive: false,
+            pointer: { kind: pointerKind, coarse: pointerKind === 'touch', last: pointerLast },
             keysPressed: input.keys ?? [],
             justPressedKeys: first ? [...(input.tap ?? [])] : [],
             justReleasedKeys: [],
