@@ -32,7 +32,10 @@ manager.addEffect(new Wind()).addEffect(new RainEater()).addEffect(new Rain());
 manager.run();
 ```
 
-<img alt="What that code draws: rain slanting through the dark, a glass crystal in the middle of it, and splashes along the bottom of the canvas." src="docs/readme/example-rain.jpg" width="100%">
+The same three effects behind a page with an input and a button tagged `ledge-0`: the rain lands
+on them, pools and drips, while someone types in the field.
+
+<img alt="Rain slants through the dark and a glass crystal flies through it. At the bottom, an input and a Send button tagged ledge-0 catch the rain on their top edges; someone types 'Rain lands on this field.' into the input, then clears it." src="docs/readme/example-ledge-0.webp" width="100%">
 
 Duolume is a rebuild of an earlier 2D canvas engine (October to November 2025) and keeps its
 contract: a `VisualsManager` runs named `Effect` classes through `initialize`, `onTick`, `onRender`
@@ -215,6 +218,15 @@ still grows on it and fireflies still shelter under it. Rain, snow, confetti, pe
 bubbles and crystal shards honour it; each piece rolls one number at birth and passes when
 `roll * 100` is below the ledge's number, so it never flickers. A plain `ledge` keeps each
 effect's own rule.
+
+Because each drop rolls once, the four fifths of the rain that fall through one `ledge-80`
+fall through every `ledge-80` under it: rain keeps falling past the lower ones, but none of it
+stops there. What an element catches pools on it and drips off as new drops, and those roll
+again. Five `ledge-80` elements, stacked and as stairs, each saying what it gets:
+
+<img alt="Five elements tagged ledge-80, stacked with gaps between them. 1: a fifth of the rain stops on me, the other four fifths fall through all five. 2: rain falls through me, but none of it stops, it already passed 1; I catch a fifth of 1's drips. 3: a fifth of 2's drips. 4: a fifth of 3's drips. 5: a fifth of 4's drips, nearly dry." src="docs/readme/ledge-80-stacked.webp" width="100%">
+
+<img alt="Five ledge-80 elements as stairs, each a quarter further right, so 5 starts where 1 ends. 1: all of me is under open sky, a fifth of the rain stops on me. 2: under 1 I catch a fifth of its drips, my right quarter is open sky. 3: covered on the left, open on the right. 4: the same again. 5: I start where 1 ends, open only on my right quarter." src="docs/readme/ledge-80-stairs.webp" width="100%">
 
 The manager keeps following its
 `anchors` root: elements added, removed or retagged after `create` are picked up before the next
