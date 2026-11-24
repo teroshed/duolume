@@ -1,16 +1,23 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/readme/header-dark.svg">
+  <img alt="Duolume: PixiJS and Three.js as one picture. Slanting rain falls past a glass crystal that eats it, under ribbons of teal and violet light." src="docs/readme/header-light.svg" width="100%">
+</picture>
+
 # Duolume
 
 A small framework for animated scenes on the web. It runs **PixiJS and Three.js as one picture**,
 built from effects that react to each other and to the page, and writing a new effect is meant to
 be laughably intuitive: one small class, four methods.
 
-**Documentation, a nine-lesson tutorial with live editable demos, and every built-in effect running:
-[duolume.danielsite.com](https://duolume.danielsite.com)**
+- **Documentation, a ten-lesson tutorial with live editable demos, and every built-in effect running:
+  [duolume.danielsite.com](https://duolume.danielsite.com)**
+- **A page built on it, where every control is part of the scene:
+  [showcase.danielsite.com](https://showcase.danielsite.com)**
 
 | | |
 | --- | --- |
 | Status | 0.1.0, still in development: the API can change between versions |
-| Install | `npm install duolume pixi.js three` |
+| Install | not on npm yet; see [Quick start](#quick-start) |
 | Needs | `pixi.js` ^8.20.1 and `three` ~0.187.0 (peer dependencies), and a bundler such as Vite |
 | TypeScript | types are included; use `"moduleResolution": "bundler"` |
 | License | MIT |
@@ -25,10 +32,45 @@ manager.addEffect(new Wind()).addEffect(new RainEater()).addEffect(new Rain());
 manager.run();
 ```
 
+<img alt="What that code draws: rain slanting through the dark, a glass crystal in the middle of it, and splashes along the bottom of the canvas." src="docs/readme/example-rain.jpg" width="100%">
+
 Duolume is a rebuild of an earlier 2D canvas engine (October to November 2025) and keeps its
 contract: a `VisualsManager` runs named `Effect` classes through `initialize`, `onTick`, `onRender`
 and `cleanup`; every `onTick` returns a context that other effects can read; particles are motion
 objects in pixels and milliseconds. The names are the same on purpose.
+
+## Quick start
+
+Duolume is not on npm yet. To see every effect running, start the lab from this repository (it
+needs [Bun](https://bun.sh)):
+
+```sh
+git clone https://github.com/teroshed/duolume.git
+cd duolume
+bun install
+bun run dev         # the lab at http://127.0.0.1:3031/lab/
+```
+
+To use it in a project before it is published, build and pack it here, then install the file
+from your project:
+
+```sh
+bun run build:lib   # JavaScript and type declarations in lib/
+npm pack            # duolume-0.1.0.tgz
+```
+
+```sh
+# in your project
+npm install ../duolume/duolume-0.1.0.tgz pixi.js three
+```
+
+The example above then works as written. Once Duolume is on npm, that line becomes
+`npm install duolume pixi.js three`.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/readme/separator-ribbons-dark.svg">
+  <img alt="Separator: two ribbons of aurora light." src="docs/readme/separator-ribbons-light.svg" width="100%">
+</picture>
 
 ## The package
 
@@ -39,7 +81,7 @@ objects in pixels and milliseconds. The names are the same on purpose.
 | `duolume/effects/<Folder>/<File>` | Any file of the library by path, e.g. the building block `Crystal/CrystalBody` |
 | `duolume/types` | Only for typing your own effects: the registries are augmented here |
 
-npm ships JavaScript and type declarations built from this repository (`bun run build:lib`
+The package is JavaScript and type declarations built from this repository (`bun run build:lib`
 writes them to `lib/`). The two renderers are peer dependencies, so a page has one copy of each.
 
 ```
@@ -116,6 +158,11 @@ natural: if effects only meet through what they publish, it does not matter what
 draws with. Here the rain is Pixi, the rain eater is a Three.js crystal, and they still eat and
 get eaten through the same mechanism as before.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/readme/separator-constellation-dark.svg">
+  <img alt="Separator: a strand of a constellation, points of light joined by thin lines." src="docs/readme/separator-constellation-light.svg" width="100%">
+</picture>
+
 ## How effects reach each other
 
 | Channel | What it is | Timing |
@@ -143,6 +190,11 @@ declare module 'duolume/types' {
 The module named there has to be `duolume/types`, the file that declares the registries; naming
 `duolume` does not merge. Reading a name that no effect has logs one `console.debug` per name
 (visible at the console's verbose level), which catches typos.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/readme/separator-rain-dark.svg">
+  <img alt="Separator: rain landing on a ledge, pooling on it and dripping from its underside." src="docs/readme/separator-rain-light.svg" width="100%">
+</picture>
 
 ## The stage and the page
 
@@ -339,6 +391,11 @@ const target = tick.mousePosition ?? (tick.pointer.kind === 'touch' ? tick.point
 const reach = tick.pointer.kind === 'touch' ? 45 : 30; // a finger hides what it presses: give it room
 ```
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/readme/separator-meadow-dark.svg">
+  <img alt="Separator: a strip of meadow grass growing on a ledge, with fireflies above it." src="docs/readme/separator-meadow-light.svg" width="100%">
+</picture>
+
 ## Time
 
 - Ticks are fixed-rate, 60 per second. Each advances the simulation by `1000 / 60` ms times
@@ -508,8 +565,8 @@ and cohesion), `Snow/SnowCap.ts` (a heightfield of snow that slumps, melts and c
 `Meadow/BladeRow.ts` (a row of grass blades, each a spring on its tip). They are importable by
 path like `CrystalBody`.
 
-`effects/Field/` is the building block of the effects that draw inside inputs (the nine
-rows above the template): `FieldSet` keeps one record per tagged page element (its state from the tags, eased
+`effects/Field/` is the building block of the effects that draw inside inputs and round them
+(the rows from `Orbit` to `Petals` above, all but `FieldFrame`): `FieldSet` keeps one record per tagged page element (its state from the tags, eased
 presence and level, the pointer over it, presses), and `FieldLayer` gives each element a
 `Graphics` clipped to its rounded rectangle. "Inside inputs" above says how a page asks for one.
 
@@ -521,7 +578,7 @@ bun run dev         # the lab at http://127.0.0.1:3031/lab/
 bun run typecheck
 bun test tests
 bun run build       # the lab, as a static site
-bun run build:lib   # what npm ships: JavaScript and type declarations in lib/
+bun run build:lib   # the package: JavaScript and type declarations in lib/
 ```
 
 `lab/solo.html?effects=wind,rain` runs just those effects, found by `effectName`, on a stage with
