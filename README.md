@@ -51,8 +51,8 @@ bun install
 bun run dev         # the lab at http://127.0.0.1:3031/lab/
 ```
 
-To use it in a project before it is published, build the package here and install the file that
-makes:
+To use it in a project before it is published, build and pack it here, then install the file
+from your project:
 
 ```sh
 bun run build:lib   # JavaScript and type declarations in lib/
