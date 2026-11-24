@@ -177,6 +177,46 @@ describe('events', () => {
         expect(heard).toEqual(['tick 0', 'tick 1']);
     });
 
+    test('an event sent from the page reaches the effects in the next tick, and the page listeners once', () => {
+        const sim = simulation();
+        const heard: string[] = [];
+        const probe = new Probe('reader', (self, tick) => {
+            for (const event of tick.events('note')) {
+                self.seen.push(event.payload);
+            }
+        });
+        sim.addEffect(probe);
+        sim.on('note', (event) => heard.push(event.payload as string));
+        // Between ticks, as `manager.emit` does.
+        sim.tickContext.emit('note', 'from the page');
+        expect(heard).toEqual([]);
+        sim.tickCycle(input());
+        expect(probe.seen).toEqual(['from the page']);
+        expect(heard).toEqual(['from the page']);
+        sim.tickCycle(input());
+        sim.tickCycle(input());
+        expect(probe.seen).toEqual(['from the page']);
+        expect(heard).toEqual(['from the page']);
+    });
+
+    test('a listener that sends an event of its own is not told it twice', () => {
+        const sim = simulation();
+        const heard: string[] = [];
+        sim.addEffect(new Probe('quiet'));
+        sim.on('note', (event) => {
+            heard.push(event.payload as string);
+            if (event.payload === 'first') {
+                sim.tickContext.emit('note', 'answer');
+            }
+        });
+        sim.tickContext.emit('note', 'first');
+        for (let i = 0; i < 4; i++) {
+            sim.tickCycle(input());
+        }
+        expect(heard.filter((payload) => payload === 'first').length).toBe(1);
+        expect(heard.filter((payload) => payload === 'answer').length).toBe(1);
+    });
+
     test('a listener that throws does not stop the simulation', () => {
         const sim = simulation();
         const errors: string[] = [];

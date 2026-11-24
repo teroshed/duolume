@@ -150,7 +150,11 @@ export class Petals extends Effect<PetalsContext> {
                 this.relayout(plant, field);
             }
 
-            const target = clamp(field.level * field.presence, 0, 1);
+            // Presence eases toward nothing without arriving; a vine that follows it all the way is
+            // never put to rest, and strokes a stem a billionth of a pixel long (which Pixi answers
+            // with a WebGL error every frame). Under a thousandth, the target is nothing.
+            const wanted = clamp(field.level * field.presence, 0, 1);
+            const target = wanted < 0.001 ? 0 : wanted;
             const step = dt / (this.growSeconds * 1000);
             const before = plant.growth;
             if (plant.growth < target) {

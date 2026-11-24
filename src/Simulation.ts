@@ -69,6 +69,10 @@ export class Simulation {
     public onEffectError?: (effectName: string, phase: 'tick' | 'render' | 'cleanup', error: unknown) => void;
 
     private readonly outsideListeners = new Map<string, Set<(event: EngineEvent) => void>>();
+    /** Events sent from the page between ticks, kept until the page's own listeners have heard them. */
+    private readonly fromOutside: EngineEvent[] = [];
+    /** True while the page's listeners are being called. */
+    private telling = false;
     private readonly warnedNames = new Set<string>();
 
     /** Each effect's own intensity, 0..1. Missing means 1. */
@@ -415,6 +419,22 @@ export class Simulation {
     }
 
     private tellOutside(): void {
+        this.telling = true;
+        // What the page itself sent since the last tick: the effects have just read it, and the
+        // page's listeners hear it now, with what the effects emitted in this tick after it.
+        for (const event of this.fromOutside) {
+            const listeners = this.outsideListeners.get(event.type);
+            if (listeners) {
+                for (const listener of listeners) {
+                    try {
+                        listener(event);
+                    } catch (error) {
+                        this.onEffectError?.(event.source, 'tick', error);
+                    }
+                }
+            }
+        }
+        this.fromOutside.length = 0;
         for (const [type, listeners] of this.outsideListeners) {
             const events = this.eventsBuilding.get(type);
             if (!events || listeners.size === 0) {
@@ -430,6 +450,7 @@ export class Simulation {
                 }
             }
         }
+        this.telling = false;
     }
 
     private emit<K extends string>(type: K, payload: PayloadOf<K>): void {
@@ -438,12 +459,18 @@ export class Simulation {
             list = [];
             this.eventsBuilding.set(type, list);
         }
-        list.push({
+        const event = {
             type,
             source: this.currentEffect,
             tick: this.tickContext.totalTickCount,
             payload,
-        });
+        };
+        list.push(event);
+        // Sent from the page, between ticks: by the end of the next tick this list belongs to the
+        // effects, so the page's listeners would never see it. Keep it for them.
+        if (this.currentEffect === '' && !this.telling) {
+            this.fromOutside.push(event);
+        }
     }
 }
 
