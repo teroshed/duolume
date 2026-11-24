@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 48" width="1280" height="48" role="img" aria-labelledby="title">
+    <title id="title">Aurora ribbons</title>
+    <style>
+        .drift-a { animation: da 30s linear infinite; }
+        .drift-b { animation: db 44s linear infinite; }
+        @keyframes da { to { transform: translateX(-480px); } }
+        @keyframes db { to { transform: translateX(640px); } }
+        @media (prefers-reduced-motion: reduce) { * { animation: none !important; } .moving { display: none; } }
+    </style>
+    <defs>
+        <linearGradient id="fadeG" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".22" stop-color="#fff"/><stop offset=".78" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+        </linearGradient>
+        <mask id="fade" maskUnits="userSpaceOnUse" x="0" y="0" width="1280" height="48"><rect width="1280" height="48" fill="url(#fadeG)"/></mask>
+        <linearGradient id="ra" x1="0" y1="0" x2="480" y2="0" gradientUnits="userSpaceOnUse" spreadMethod="reflect"><stop offset="0" stop-color="#3fd0c9"/><stop offset=".5" stop-color="#0b7a73"/><stop offset="1" stop-color="#7c6cff"/></linearGradient>
+        <linearGradient id="rb" x1="0" y1="0" x2="640" y2="0" gradientUnits="userSpaceOnUse" spreadMethod="reflect"><stop offset="0" stop-color="#7c6cff"/><stop offset="1" stop-color="#0b7a73"/></linearGradient>
+    </defs>
+    <g mask="url(#fade)">
+        <g class="drift-a"><defs><path id="ra-p" d="M-480 27.4C-470 27.7 -440 29.3 -420 29.6C-400 29.8 -380 29.1 -360 28.9C-340 28.6 -320 28.8 -300 28.1C-280 27.4 -260 26.3 -240 24.6C-220 22.9 -200 19.5 -180 17.9C-160 16.3 -140 14.7 -120 15.2C-100 15.6 -80 18.4 -60 20.4C-40 22.4 -20 25.8 0 27.4C20 28.9 40 29.3 60 29.6C80 29.8 100 29.1 120 28.9C140 28.6 160 28.8 180 28.1C200 27.4 220 26.3 240 24.6C260 22.9 280 19.5 300 17.9C320 16.3 340 14.7 360 15.2C380 15.6 400 18.4 420 20.4C440 22.4 460 25.8 480 27.4C500 28.9 520 29.3 540 29.6C560 29.8 580 29.1 600 28.9C620 28.6 640 28.8 660 28.1C680 27.4 700 26.3 720 24.6C740 22.9 760 19.5 780 17.9C800 16.3 820 14.7 840 15.2C860 15.6 880 18.4 900 20.4C920 22.4 940 25.8 960 27.4C980 28.9 1000 29.3 1020 29.6C1040 29.8 1060 29.1 1080 28.9C1100 28.6 1120 28.8 1140 28.1C1160 27.4 1180 26.3 1200 24.6C1220 22.9 1240 19.5 1260 17.9C1280 16.3 1300 14.7 1320 15.2C1340 15.6 1360 18.4 1380 20.4C1400 22.4 1420 25.8 1440 27.4C1460 28.9 1480 29.3 1500 29.6C1520 29.8 1540 29.1 1560 28.9C1580 28.6 1600 28.8 1620 28.1C1640 27.4 1660 26.3 1680 24.6C1700 22.9 1730 19 1740 17.9"/></defs>
+        <g fill="none" stroke="url(#ra)" stroke-linecap="round">
+            <use href="#ra-p" stroke-width="17" opacity="0.045"/>
+            <use href="#ra-p" stroke-width="9" opacity="0.083"/>
+            <use href="#ra-p" stroke-width="3.5" opacity="0.165"/>
+            <use href="#ra-p" stroke-width="1.1" opacity="0.315"/>
+        </g></g>
+        <g class="drift-b"><defs><path id="rb-p" d="M-640 28.8C-626.7 28.4 -586.7 27.5 -560 26.2C-533.3 24.9 -506.7 22.3 -480 20.8C-453.3 19.4 -426.7 17.6 -400 17.5C-373.3 17.5 -346.7 19.1 -320 20.7C-293.3 22.2 -266.7 25.2 -240 26.7C-213.3 28.2 -186.7 29.2 -160 29.7C-133.3 30.2 -106.7 29.7 -80 29.5C-53.3 29.4 -26.7 29.3 0 28.8C26.7 28.2 53.3 27.5 80 26.2C106.7 24.9 133.3 22.3 160 20.8C186.7 19.4 213.3 17.6 240 17.5C266.7 17.5 293.3 19.1 320 20.7C346.7 22.2 373.3 25.2 400 26.7C426.7 28.2 453.3 29.2 480 29.7C506.7 30.2 533.3 29.7 560 29.5C586.7 29.4 613.3 29.3 640 28.8C666.7 28.2 693.3 27.5 720 26.2C746.7 24.9 773.3 22.3 800 20.8C826.7 19.4 853.3 17.6 880 17.5C906.7 17.5 933.3 19.1 960 20.7C986.7 22.2 1013.3 25.2 1040 26.7C1066.7 28.2 1093.3 29.2 1120 29.7C1146.7 30.2 1173.3 29.7 1200 29.5C1226.7 29.4 1253.3 29.3 1280 28.8C1306.7 28.2 1333.3 27.5 1360 26.2C1386.7 24.9 1413.3 22.3 1440 20.8C1466.7 19.4 1493.3 17.6 1520 17.5C1546.7 17.5 1573.3 19.1 1600 20.7C1626.7 22.2 1653.3 25.2 1680 26.7C1706.7 28.2 1733.3 29.2 1760 29.7C1786.7 30.2 1813.3 29.7 1840 29.5C1866.7 29.4 1906.7 28.9 1920 28.8"/></defs>
+        <g fill="none" stroke="url(#rb)" stroke-linecap="round">
+            <use href="#rb-p" stroke-width="12.9" opacity="0.045"/>
+            <use href="#rb-p" stroke-width="6.8" opacity="0.083"/>
+            <use href="#rb-p" stroke-width="2.7" opacity="0.165"/>
+            <use href="#rb-p" stroke-width="0.8" opacity="0.315"/>
+        </g></g>
+    </g>
+</svg>
