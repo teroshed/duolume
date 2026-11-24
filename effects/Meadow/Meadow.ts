@@ -72,6 +72,8 @@ const MAX_CLIPPINGS = 48;
 const LEDGE_SCALE = 0.55;
 /** Radius of the cut the pointer makes, px: a round-bottomed bite, lowest at the pointer. */
 const CUT_REACH = 30;
+/** A finger's cut is this many times wider than a cursor's. */
+const TOUCH_REACH = 1.5;
 /** Where along the blade an unshaded blade takes its one colour from, root 0 → tip 1. */
 const FLAT_ALONG = 0.7;
 
@@ -86,7 +88,8 @@ const FLAT_ALONG = 0.7;
  *   - the pointer: blades part around it, more when it moves fast. A press (not on a button or
  *     link) cuts the blades it touches at the height of the pointer, and goes on cutting while
  *     the button is held and the pointer moves, like a scythe. What is below the pointer stays;
- *     a blade that ends below it is not touched.
+ *     a blade that ends below it is not touched. A finger cuts half as wide again as a cursor
+ *     (`tick.pointer.kind`), and parts the grass only while it is down.
  *   - `lightning:strike` and `meteor:impact` events: blades within 90 px are scorched to stubble.
  *   - `rain:landed` events: a droplet flicks the blade it lands on.
  *   - elements tagged "ledge": grass grows on their top edges and follows them.
@@ -223,9 +226,11 @@ export class Meadow extends Effect<MeadowContext> {
             const startX = pressed || !Number.isFinite(fromX) ? mouse.x : fromX;
             const startY = pressed || !Number.isFinite(fromX) ? mouse.y : fromY;
             const cuts = Math.max(1, Math.min(40, Math.ceil(Math.hypot(mouse.x - startX, mouse.y - startY) / 6)));
+            // A finger hides what it cuts and is less exact than a cursor: it cuts wider.
+            const reach = tick.pointer.kind === 'touch' ? CUT_REACH * TOUCH_REACH : CUT_REACH;
             for (let c = 1; c <= cuts; c++) {
                 const t = c / cuts;
-                this.mow(startX + (mouse.x - startX) * t, startY + (mouse.y - startY) * t, time);
+                this.mow(startX + (mouse.x - startX) * t, startY + (mouse.y - startY) * t, time, reach);
             }
         }
         if (!tick.mouseDown) {
@@ -415,12 +420,11 @@ export class Meadow extends Effect<MeadowContext> {
     }
 
     /**
-     * Cut the blades the pointer touches, at the pointer: a round-bottomed bite `CUT_REACH` in
+     * Cut the blades the pointer touches, at the pointer: a round-bottomed bite `reach` in
      * radius whose lowest point is the pointer, so a blade right under it is cut at its height
      * and its neighbours a little higher. A blade that ends below the bite is left alone.
      */
-    private mow(x: number, y: number, time: number): void {
-        const reach = CUT_REACH;
+    private mow(x: number, y: number, time: number, reach: number): void {
         // A leaning blade is cut where it is at that height, which can be far from its root.
         const span = reach + this.bladeHeight;
         for (const { row } of this.rows.values()) {

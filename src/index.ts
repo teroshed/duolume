@@ -31,6 +31,8 @@ export type {
     LevelOf,
     LevelInfo,
     FieldLetter,
+    PointerInfo,
+    PointerKind,
     FieldTextEvent,
     PageHitEvent,
 } from './types';

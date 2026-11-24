@@ -1,4 +1,4 @@
-import type { Vector3 } from './types';
+import type { PointerInfo, PointerKind, Vector3 } from './types';
 
 // A press inside a dialog (or on its backdrop, which targets the dialog) is for the dialog, not the scene.
 const INTERACTIVE =
@@ -25,6 +25,8 @@ export class InputState {
     public mousePosition?: Vector3;
     public mouseDown = false;
     public mouseOnInteractive = false;
+    /** How the visitor is pointing: the kind by the latest input, and where they last pointed. */
+    public readonly pointer: PointerInfo;
     public keysPressed: string[] = [];
     public scrollY = 0;
 
@@ -33,6 +35,8 @@ export class InputState {
     private mouseJustPressed = false;
     private mouseJustReleased = false;
     private wheelDelta = 0;
+    /** A finger has lifted and the frame that hears of it has not been handed its edges yet. */
+    private lifted = false;
     private readonly abort = new AbortController();
     private originX = 0;
     private originY = 0;
@@ -41,13 +45,20 @@ export class InputState {
     public constructor(target: Window = window, stage: HTMLElement | null = null) {
         this.stage = stage;
         const options = { signal: this.abort.signal, passive: true } as const;
+        // Before anyone has pointed at anything: what the device's main pointer is.
+        const coarse = typeof target.matchMedia === 'function' && target.matchMedia('(pointer: coarse)').matches;
+        this.pointer = { kind: coarse ? 'touch' : 'mouse', coarse, last: undefined };
 
         target.addEventListener(
             'pointermove',
             (event) => {
+                this.pointer.kind = kindOf(event);
                 this.mousePosition = this.over(event)
                     ? { x: event.clientX - this.originX, y: event.clientY - this.originY }
                     : undefined;
+                if (this.mousePosition) {
+                    this.pointer.last = this.mousePosition;
+                }
             },
             options,
         );
@@ -57,7 +68,10 @@ export class InputState {
                 if (event.button !== 0 || !this.over(event)) {
                     return;
                 }
+                this.pointer.kind = kindOf(event);
+                this.lifted = false;
                 this.mousePosition = { x: event.clientX - this.originX, y: event.clientY - this.originY };
+                this.pointer.last = this.mousePosition;
                 const element = event.target instanceof Element ? event.target : null;
                 this.mouseOnInteractive = element?.closest(INTERACTIVE) != null;
                 if (!this.mouseDown) {
@@ -67,11 +81,16 @@ export class InputState {
             },
             options,
         );
-        const release = (): void => {
+        const release = (event?: Event): void => {
             if (this.mouseDown) {
                 this.mouseJustReleased = true;
             }
             this.mouseDown = false;
+            // A finger that lifts is gone: there is no pointer hovering where it was. The position
+            // stays for the frame that carries the press and the release, then goes.
+            if (event && 'pointerType' in event && event.pointerType === 'touch') {
+                this.lifted = true;
+            }
         };
         target.addEventListener('pointerup', release, options);
         target.addEventListener('pointercancel', release, options);
@@ -204,12 +223,24 @@ export class InputState {
         this.mouseJustPressed = false;
         this.mouseJustReleased = false;
         this.wheelDelta = 0;
+        // This frame's ticks already have the position of the touch that ended; the next has none.
+        if (this.lifted) {
+            this.lifted = false;
+            if (!this.mouseDown) {
+                this.mousePosition = undefined;
+            }
+        }
         return edges;
     }
 
     public dispose(): void {
         this.abort.abort();
     }
+}
+
+/** What kind of pointer an event came from. Anything unknown counts as a mouse. */
+function kindOf(event: PointerEvent): PointerKind {
+    return event.pointerType === 'touch' ? 'touch' : event.pointerType === 'pen' ? 'pen' : 'mouse';
 }
 
 export function normalizeKey(key: string): string {

@@ -84,6 +84,9 @@ On the documentation site (`engine-docs`, a separate repository that carries a c
 - Colour comes from the theme (`tick.theme`, `timed.theme`), read every frame.
 - It is a background behind page text: modest alpha, no large bright fills.
 - Ignore presses when `tick.mouseOnInteractive` is true.
+- `tick.pointer` says how the visitor points (`kind`: mouse, touch or pen; `coarse`; `last`). Under
+  touch `tick.mousePosition` is there only while a finger is down, so a hover costs nothing to get
+  right; read `pointer.last` to go where they last touched, and give a finger more room than a cursor.
 - Something that falls and lands on ledges honours `ledge-N`: give each piece one `roll =
   Math.random()` at birth and let it through a ledge when `roll * 100 < (rect.numbers.ledge ??
   yourDefault)`. Things that perch, grow or shelter on ledges ignore the number.

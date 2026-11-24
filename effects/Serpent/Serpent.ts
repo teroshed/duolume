@@ -305,8 +305,9 @@ export class Serpent extends Effect<SerpentContext> {
         aim.x = this.wander.x;
         aim.y = this.wander.y;
 
-        // Curious: go to the pointer.
-        const mouse = tick.mousePosition;
+        // Curious: go to the pointer. A finger is a pointer only while it is down, so under touch
+        // it goes to where the last one was.
+        const mouse = tick.mousePosition ?? (tick.pointer.kind === 'touch' ? tick.pointer.last : undefined);
         if (mouse && this.curiosity > 0 && mouse.x >= 0 && mouse.x <= width && mouse.y >= 0 && mouse.y <= height) {
             aim.x = mouse.x;
             aim.y = mouse.y;
