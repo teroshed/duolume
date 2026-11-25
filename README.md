@@ -219,14 +219,14 @@ bubbles and crystal shards honour it; each piece rolls one number at birth and p
 `roll * 100` is below the ledge's number, so it never flickers. A plain `ledge` keeps each
 effect's own rule.
 
-Because each drop rolls once, the four fifths of the rain that fall through one `ledge-80`
-fall through every `ledge-80` under it: rain keeps falling past the lower ones, but none of it
+Because each drop rolls once, the fifth of the rain that falls through one `ledge-20` falls
+through every `ledge-20` under it: that rain keeps falling past the lower ones, and none of it
 stops there. What an element catches pools on it and drips off as new drops, and those roll
-again. Five `ledge-80` elements, stacked and as stairs, each saying what it gets:
+again. Five `ledge-20` elements, stacked and as stairs, each saying what it gets:
 
-<img alt="Five elements tagged ledge-80, stacked with gaps between them. 1: a fifth of the rain stops on me, the other four fifths fall through all five. 2: rain falls through me, but none of it stops, it already passed 1; I catch a fifth of 1's drips. 3: a fifth of 2's drips. 4: a fifth of 3's drips. 5: a fifth of 4's drips, nearly dry." src="docs/readme/ledge-80-stacked.webp" width="100%">
+<img alt="Five elements tagged ledge-20, stacked with gaps between them. 1: four fifths of the rain stop on me, the other fifth falls through all five. 2: that fifth falls through me too, it already passed 1; I catch four fifths of 1's drips. 3: four fifths of 2's drips. 4: four fifths of 3's drips. 5: four fifths of 4's drips." src="docs/readme/ledge-20-stacked.webp" width="100%">
 
-<img alt="Five ledge-80 elements as stairs, each a quarter further right, so 5 starts where 1 ends. 1: all of me is under open sky, a fifth of the rain stops on me. 2: under 1 I catch a fifth of its drips, my right quarter is open sky. 3: covered on the left, open on the right. 4: the same again. 5: I start where 1 ends, open only on my right quarter." src="docs/readme/ledge-80-stairs.webp" width="100%">
+<img alt="Five ledge-20 elements as stairs, each a quarter further right, so 5 starts where 1 ends. 1: all of me is under open sky, four fifths of the rain stop on me. 2: under 1 I catch four fifths of its drips, my right quarter is open sky. 3: covered on the left, open on the right. 4: the same again. 5: I start where 1 ends, open only on my right quarter." src="docs/readme/ledge-20-stairs.webp" width="100%">
 
 The manager keeps following its
 `anchors` root: elements added, removed or retagged after `create` are picked up before the next
